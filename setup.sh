@@ -72,9 +72,24 @@ fi
 # Set execute permissions
 echo -e "\n${BLUE}Setting execute permissions...${NC}"
 chmod +x main.py
+chmod +x darkpen.sh
+chmod +x launch_darkpen.py
+chmod +x run.py
+chmod +x start_gui.sh
+
+# Install desktop entry if possible
+if [ -d ~/.local/share/applications ]; then
+    echo -e "\n${BLUE}Installing desktop entry...${NC}"
+    # Update the desktop entry with the correct path
+    sed -i "s|/home/mike/AI-Pentest-Platform|$(pwd)|g" darkpen.desktop
+    cp darkpen.desktop ~/.local/share/applications/
+    echo -e "${GREEN}Desktop entry installed! You can now launch DarkPen from your applications menu.${NC}"
+fi
 
 echo -e "\n${GREEN}Installation complete! 🎉${NC}"
-echo -e "\nTo start DarkPen:"
-echo -e "1. Activate the virtual environment: ${CYAN}source venv/bin/activate${NC}"
-echo -e "2. Run the application: ${CYAN}./main.py${NC}"
+echo -e "\nTo start DarkPen, use one of these methods:"
+echo -e "1. ${CYAN}./darkpen.sh${NC} (Recommended - Shell launcher)"
+echo -e "2. ${CYAN}python3 launch_darkpen.py${NC} (Python launcher)"
+echo -e "3. ${CYAN}python3 run.py${NC} (Direct execution)"
+echo -e "4. ${CYAN}./start_gui.sh${NC} (With virtual environment)"
 echo -e "\n${RED}Note: Make sure to edit the .env file with your settings before running the application.${NC}"

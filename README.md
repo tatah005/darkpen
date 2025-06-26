@@ -67,10 +67,27 @@ sudo apt-get install -y python3-pyqt5 nmap nikto metasploit-framework
 pip3 install -r requirements.txt
 ```
 
-3. **Run the application**
-```bash
-python3 main.py
-```
+3. **Launch DarkPen** (Choose one method)
+
+   **Method 1: Using the launcher script (Recommended)**
+   ```bash
+   ./darkpen.sh
+   ```
+
+   **Method 2: Using Python launcher**
+   ```bash
+   python3 launch_darkpen.py
+   ```
+
+   **Method 3: Direct Python execution**
+   ```bash
+   python3 run.py
+   ```
+
+   **Method 4: Using the shell script with virtual environment**
+   ```bash
+   ./start_gui.sh
+   ```
 
 ### Docker Installation
 

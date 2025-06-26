@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=DarkPen
+Comment=AI-Powered Penetration Testing Platform
+Exec=/usr/bin/python3 /home/mike/AI-Pentest-Platform/launch_darkpen.py
+Icon=/home/mike/AI-Pentest-Platform/icon.png
+Terminal=false
+Categories=Security;Network;Development;
+Keywords=pentest;security;network;scanning;ai;
+StartupWMClass=DarkPen 
