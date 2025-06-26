@@ -6,6 +6,7 @@ A comprehensive, AI-enhanced penetration testing platform built with Python and 
 ![Python](https://img.shields.io/badge/Python-3.8+-blue?style=for-the-badge&logo=python)
 ![PyQt5](https://img.shields.io/badge/PyQt5-GUI%20Framework-green?style=for-the-badge&logo=qt)
 ![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)
+![GitHub](https://img.shields.io/badge/GitHub-Public%20Repository-brightgreen?style=for-the-badge&logo=github)
 
 ## 🌟 Features
 
@@ -53,7 +54,7 @@ A comprehensive, AI-enhanced penetration testing platform built with Python and 
 
 1. **Clone the repository**
 ```bash
-git clone https://github.com/yourusername/darkpen.git
+git clone https://github.com/tatah005/darkpen.git
 cd darkpen
 ```
 
@@ -96,6 +97,10 @@ pip3 install -r requirements.txt
 cd deployment
 docker-compose up --build
 ```
+
+### Windows Installation
+
+For Windows users, see [WINDOWS_SETUP.md](WINDOWS_SETUP.md) for detailed instructions.
 
 ## 📋 Usage Guide
 
@@ -198,55 +203,68 @@ Export includes:
   },
   "vulnerabilities": [
     {
-      "name": "High-risk service: ssh",
-      "severity": "High",
-      "description": "SSH service may pose security risks",
-      "recommendation": "Review and secure SSH service"
+      "type": "service_vulnerability",
+      "severity": "Medium",
+      "description": "Default SSH configuration",
+      "recommendation": "Harden SSH configuration"
     }
   ]
 }
 ```
 
-## 🛡️ Security Considerations
+## 🎭 Demo Mode
 
-- **Legal Use Only**: This tool is for authorized penetration testing only
-- **Responsible Disclosure**: Report vulnerabilities to system owners
-- **Network Permissions**: Ensure you have permission to scan target networks
-- **Data Protection**: Secure scan results and sensitive information
+For presentations or demonstrations without requiring security tools:
+
+```bash
+python3 demo_mode.py
+```
+
+This launches a demo version that shows the interface and simulates scan results without performing actual scans.
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to contribute to DarkPen.
 
-## 📝 License
+### Development Setup
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
+
+## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## ⚠️ Disclaimer
+## 🛡️ Security
 
-This tool is designed for authorized penetration testing and security research only. Users are responsible for ensuring they have proper authorization before scanning any systems. The developers are not responsible for any misuse of this software.
+- **Ethical Use Only**: This tool is designed for authorized penetration testing and security research
+- **Legal Compliance**: Always ensure you have proper authorization before scanning any systems
+- **Responsible Disclosure**: Report any security issues through GitHub Issues
 
-## 🆘 Support
+## 📞 Support
 
-- **Issues**: Report bugs and feature requests via GitHub Issues
-- **Documentation**: Check the `docs/` directory for detailed guides
-- **Community**: Join our discussions for help and collaboration
+- **GitHub Issues**: [Report bugs or request features](https://github.com/tatah005/darkpen/issues)
+- **Documentation**: Check the [docs/](docs/) directory for detailed guides
+- **Community**: Join discussions in GitHub Discussions
 
-## 🎯 Roadmap
+## 🚀 Roadmap
 
-- [ ] Additional scanner integrations (Nessus, OpenVAS)
-- [ ] Advanced AI capabilities (machine learning models)
 - [ ] Web-based interface
-- [ ] Team collaboration features
-- [ ] Advanced reporting and analytics
-- [ ] Integration with SIEM systems
+- [ ] Cloud deployment options
+- [ ] Additional vulnerability scanners
+- [ ] Enhanced AI capabilities
+- [ ] Mobile application
+- [ ] Integration with more security tools
+
+## ⭐ Star History
+
+If you find DarkPen useful, please consider giving it a star on GitHub!
 
 ---
 
 **Made with ❤️ for the cybersecurity community**
 
-*DarkPen - Where AI meets penetration testing* 
+**Repository**: https://github.com/tatah005/darkpen 

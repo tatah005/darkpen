@@ -1,28 +1,33 @@
 {
+    "name": "DarkPen",
     "version": "1.0.0",
-    "release_date": "2024-03-20",
-    "last_update": null,
-    "build_number": "1",
-    "commit_hash": "initial",
-    "branch": "main",
-    "features": [
-        "Network scanning with Nmap",
-        "Web vulnerability scanning with Nikto",
-        "Metasploit integration",
-        "AI-powered analysis",
-        "History tracking",
-        "Cyberpunk UI"
+    "description": "AI-Powered Penetration Testing Platform",
+    "author": "DarkPen Team",
+    "license": "MIT",
+    "homepage": "https://github.com/tatah005/darkpen",
+    "repository": "https://github.com/tatah005/darkpen",
+    "bugs": "https://github.com/tatah005/darkpen/issues",
+    "keywords": [
+        "penetration-testing",
+        "security",
+        "ai",
+        "nmap",
+        "nikto",
+        "metasploit",
+        "cybersecurity",
+        "vulnerability-assessment"
     ],
+    "main": "main.py",
+    "scripts": {
+        "start": "python3 main.py",
+        "demo": "python3 demo_mode.py",
+        "test": "python3 -m pytest tests/",
+        "install": "./install.sh"
+    },
     "dependencies": {
         "python": ">=3.8",
-        "nmap": ">=7.80",
-        "nikto": ">=2.1.6",
-        "metasploit": ">=6.0.0",
-        "sqlite": ">=3.0.0"
-    },
-    "authors": [
-        "DarkPen Development Team"
-    ],
-    "license": "MIT",
-    "repository": "https://github.com/yourusername/darkpen"
+        "pyqt5": ">=5.15.0",
+        "sqlalchemy": ">=1.4.0",
+        "python-nmap": ">=0.7.1"
+    }
 } 
