@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  darkpen:
+    build: 
+      context: ..
+      dockerfile: deployment/Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      - ../data:/app/data
+      - ../logs:/app/logs
+    environment:
+      - DARKPEN_ENV=production
+      - DB_URL=postgresql://darkpen:${DB_PASSWORD}@db:5432/darkpen
+    depends_on:
+      - db
+      - msfrpcd
+
+  db:
+    image: postgres:14-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=darkpen
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=darkpen
+
+  msfrpcd:
+    image: metasploitframework/metasploit-framework:latest
+    command: ./msfrpcd -P ${MSF_PASSWORD} -S -a 127.0.0.1
+    ports:
+      - "55553:55553"
+    volumes:
+      - msf_data:/home/msf/.msf4
+
+volumes:
+  postgres_data:
+  msf_data: 

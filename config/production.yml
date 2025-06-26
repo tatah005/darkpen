@@ -1,0 +1,45 @@
+server:
+  host: 0.0.0.0
+  port: 8080
+  workers: 4
+  debug: false
+
+database:
+  url: ${DB_URL}
+  pool_size: 20
+  max_overflow: 10
+
+security:
+  secret_key: ${JWT_SECRET}
+  token_expiry: 86400
+  password_rounds: 12
+  allowed_hosts:
+    - localhost
+    - 127.0.0.1
+
+tools:
+  metasploit:
+    host: msfrpcd
+    port: 55553
+    ssl: true
+    verify_ssl: false
+    password: ${MSF_PASSWORD}
+
+  nmap:
+    path: /usr/bin/nmap
+    concurrent_scans: 3
+
+  nikto:
+    path: /usr/bin/nikto
+    concurrent_scans: 2
+
+logging:
+  level: INFO
+  rotation: 5MB
+  backups: 10
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+backup:
+  schedule: "0 0 * * *"
+  retention_days: 30
+  compression: true 

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Download DarkPen - AI-Powered Penetration Testing Platform</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #0a0a0a;
+            color: #e0e0e0;
+        }
+        .container {
+            background: #1a1a1a;
+            border-radius: 8px;
+            padding: 30px;
+            margin: 20px 0;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
+        }
+        .download-button {
+            display: inline-block;
+            padding: 15px 30px;
+            background: #00ff9d;
+            color: #000;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            margin: 10px;
+            transition: all 0.3s ease;
+        }
+        .download-button:hover {
+            background: #00cc7d;
+            transform: translateY(-2px);
+        }
+        .code-block {
+            background: #000;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            color: #00ff9d;
+        }
+        h1, h2 {
+            color: #00ff9d;
+        }
+        .warning {
+            background: #ff3e3e20;
+            border-left: 4px solid #ff3e3e;
+            padding: 15px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔒 Download DarkPen v1.0.0</h1>
+        <p>Choose your platform and download the latest version of DarkPen:</p>
+        
+        <div>
+            <a href="downloads/darkpen-1.0.0.tar.gz" class="download-button">
+                🐧 Linux/macOS (.tar.gz)
+            </a>
+            <a href="downloads/darkpen-1.0.0.zip" class="download-button">
+                🪟 Windows (.zip)
+            </a>
+        </div>
+
+        <h2>🔍 Verify Your Download</h2>
+        <p>Verify the integrity of your download using SHA256 checksums:</p>
+        <div class="code-block">
+            # Linux/macOS
+            sha256sum -c darkpen-1.0.0.tar.gz.sha256
+
+            # Windows (PowerShell)
+            Get-FileHash darkpen-1.0.0.zip -Algorithm SHA256
+        </div>
+
+        <h2>⚡ Quick Install</h2>
+        <p>Run our automated installation script:</p>
+        <div class="code-block">
+            # Linux/macOS
+            curl -sSL https://darkpen.io/install.sh | bash
+
+            # Windows (PowerShell as Administrator)
+            iwr -useb https://darkpen.io/install.ps1 | iex
+        </div>
+
+        <h2>🚀 Manual Installation</h2>
+        <p>1. Extract the archive:</p>
+        <div class="code-block">
+            # Linux/macOS
+            tar xzf darkpen-1.0.0.tar.gz
+            cd darkpen-1.0.0
+
+            # Windows
+            # Extract using File Explorer and enter the folder
+        </div>
+
+        <p>2. Run the deployment script:</p>
+        <div class="code-block">
+            # Linux/macOS
+            ./deployment/deploy.sh
+
+            # Windows (PowerShell as Administrator)
+            .\deployment\deploy.ps1
+        </div>
+
+        <div class="warning">
+            <h3>⚠️ Security Notice</h3>
+            <p>DarkPen is a powerful penetration testing tool. Always:</p>
+            <ul>
+                <li>Verify checksums before installation</li>
+                <li>Only test systems you have permission to test</li>
+                <li>Keep the tool updated with the latest security patches</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html> 

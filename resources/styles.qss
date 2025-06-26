@@ -1,0 +1,73 @@
+/* Custom styles for specific elements */
+QLabel#header_label {
+    font-family: 'Orbitron';
+    font-size: 32px;
+    color: #7aa2f7;
+    font-weight: bold;
+    letter-spacing: 2px;
+}
+
+QLabel#subtitle_label {
+    color: #a9b1d6;
+    font-size: 14px;
+    letter-spacing: 4px;
+}
+
+QGroupBox#results_group {
+    margin-top: 30px;
+}
+
+QTextEdit#console_output {
+    font-family: 'Consolas', 'Courier New';
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+QListWidget#vuln_list::item {
+    padding: 8px;
+    border-bottom: 1px solid #414868;
+}
+
+QListWidget#vuln_list::item:selected {
+    background-color: #7aa2f7;
+    color: #1a1b26;
+}
+
+/* Custom scrollbar for better visibility */
+QScrollBar:vertical {
+    background-color: #24283b;
+    width: 14px;
+    margin: 0px;
+}
+
+QScrollBar::handle:vertical {
+    background-color: #414868;
+    min-height: 30px;
+    border-radius: 7px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background-color: #565f89;
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0px;
+}
+
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+    background-color: #24283b;
+}
+
+/* Custom styling for the progress bar */
+QProgressBar {
+    text-align: center;
+    font-weight: bold;
+    border-radius: 4px;
+    background-color: #24283b;
+    color: #1a1b26;
+}
+
+QProgressBar::chunk {
+    background-color: #7aa2f7;
+    border-radius: 3px;
+} 

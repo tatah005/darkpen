@@ -1,0 +1,28 @@
+{
+    "version": "1.0.0",
+    "release_date": "2024-03-20",
+    "last_update": null,
+    "build_number": "1",
+    "commit_hash": "initial",
+    "branch": "main",
+    "features": [
+        "Network scanning with Nmap",
+        "Web vulnerability scanning with Nikto",
+        "Metasploit integration",
+        "AI-powered analysis",
+        "History tracking",
+        "Cyberpunk UI"
+    ],
+    "dependencies": {
+        "python": ">=3.8",
+        "nmap": ">=7.80",
+        "nikto": ">=2.1.6",
+        "metasploit": ">=6.0.0",
+        "sqlite": ">=3.0.0"
+    },
+    "authors": [
+        "DarkPen Development Team"
+    ],
+    "license": "MIT",
+    "repository": "https://github.com/yourusername/darkpen"
+} 
