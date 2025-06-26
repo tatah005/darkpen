@@ -123,7 +123,7 @@ class DatabaseManager:
                         } for v in scan.vulnerabilities
                     ]
                 }
-            return None
+        return None
         finally:
             session.close()
             

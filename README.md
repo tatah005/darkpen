@@ -58,7 +58,7 @@ cd darkpen
 ```
 
 2. **Install dependencies**
-```bash
+   ```bash
 # Install system dependencies
 sudo apt-get update
 sudo apt-get install -y python3-pyqt5 nmap nikto metasploit-framework

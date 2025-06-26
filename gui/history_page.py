@@ -264,7 +264,7 @@ Status: {status}
 For detailed results, check the scan output in the respective tool tab.
 
 Error loading detailed results: {str(e)}"""
-        
+
         self.details_text.setText(details)
 
     def export_history(self):

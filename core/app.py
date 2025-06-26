@@ -8,16 +8,16 @@ import subprocess
 app = Flask(__name__)
 
 def run_nmap_scan(target, scan_type):
-    try:
-        scan_args = {
+        try:
+            scan_args = {
             'quick': '-T4 -F -Pn',
             'standard': '-sV -T4 -Pn',
             'aggressive': '-A -T4 -Pn',
             'vuln': '-sV --script vuln -Pn'
         }.get(scan_type, '-sV -Pn')
-        
-        app.logger.info(f"Starting {scan_type} scan on {target} with args: {scan_args}")
-        
+            
+            app.logger.info(f"Starting {scan_type} scan on {target} with args: {scan_args}")
+            
         # Try running nmap directly first
         try:
             nm = nmap.PortScanner()
@@ -38,27 +38,27 @@ def run_nmap_scan(target, scan_type):
                 nm.analyse_nmap_xml_scan(output.decode())
             else:
                 raise
-        
-        results = {
+            
+            results = {
             "target": target,
             "scan_type": scan_type,
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "open_ports": [],
-            "services": {},
-            "vulnerabilities": []
-        }
-        
-        for host in nm.all_hosts():
-            for proto in nm[host].all_protocols():
-                ports = nm[host][proto].keys()
-                for port in ports:
-                    service = nm[host][proto][port]
-                    results["open_ports"].append(port)
-                    results["services"][str(port)] = {
-                        "name": service["name"],
-                        "product": service.get("product", ""),
-                        "version": service.get("version", "")
-                    }
+                "open_ports": [],
+                "services": {},
+                "vulnerabilities": []
+            }
+            
+            for host in nm.all_hosts():
+                for proto in nm[host].all_protocols():
+                    ports = nm[host][proto].keys()
+                    for port in ports:
+                        service = nm[host][proto][port]
+                        results["open_ports"].append(port)
+                        results["services"][str(port)] = {
+                            "name": service["name"],
+                            "product": service.get("product", ""),
+                            "version": service.get("version", "")
+                        }
                     # Check for vulnerabilities
                     if 'ssh' in service['name'].lower():
                         if '7.2' in service.get('version', ''):
@@ -68,8 +68,8 @@ def run_nmap_scan(target, scan_type):
                             results["vulnerabilities"].append("Apache 2.4.49 Path Traversal (CVE-2021-41773)")
         
         return results
-        
-    except Exception as e:
+            
+        except Exception as e:
         return {"error": str(e)}
 
 @app.route('/scan/nmap', methods=['POST'])

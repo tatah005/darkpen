@@ -848,7 +848,7 @@ class NmapPage(QWidget):
         if self.scan_thread and self.scan_thread.isRunning():
             self.scan_thread.stop()
             self.terminal.append_output("[!] Scan stopped by user")
-            
+        
             # Save stopped scan to database
             try:
                 from core.database_manager import DatabaseManager
