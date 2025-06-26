@@ -22,5 +22,4 @@ aiofiles==23.2.1
 python-dateutil==2.8.2
 
 # GUI
-customtkinter==5.2.1
-pillow==10.1.0 
+customtkinter==5.2.1 
