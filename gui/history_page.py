@@ -1,7 +1,8 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
                             QPushButton, QTableWidget, QTableWidgetItem, QComboBox,
-                            QFrame, QHeaderView, QMessageBox, QTextEdit, QFileDialog)
-from PyQt5.QtCore import Qt, pyqtSignal
+                            QFrame, QHeaderView, QMessageBox, QTextEdit, QFileDialog,
+                            QLineEdit, QDateEdit)
+from PyQt5.QtCore import Qt, pyqtSignal, QDate
 from PyQt5.QtGui import QColor, QFont
 from datetime import datetime
 import json
@@ -68,7 +69,7 @@ class SimpleHistoryPage(QWidget):
         header_label.setStyleSheet(f"color: {COLORS['text_primary']}; margin: 10px;")
         layout.addWidget(header_label)
         
-        # Simple filter
+        # Filter area
         filter_layout = QHBoxLayout()
         
         filter_label = QLabel("Filter by Tool:")
@@ -77,9 +78,40 @@ class SimpleHistoryPage(QWidget):
         
         self.tool_filter = QComboBox()
         self.tool_filter.setStyleSheet(STYLES['combo_box'])
-        self.tool_filter.addItems(["All Tools", "Nmap", "Nikto", "Metasploit"])
+        self.tool_filter.addItems(["All Tools", "Nmap", "Nikto", "Metasploit", "SQLMap"])
         self.tool_filter.currentTextChanged.connect(self.apply_filter)
+        self.tool_filter.setToolTip("Filter scan history by tool type (Nmap, Nikto, Metasploit, SQLMap)")
         filter_layout.addWidget(self.tool_filter)
+        
+        # Search box for target/IP
+        search_label = QLabel("Search Target:")
+        search_label.setFont(QFont('Segoe UI', 10))
+        filter_layout.addWidget(search_label)
+        self.search_box = QLineEdit()
+        self.search_box.setPlaceholderText("Target name or IP")
+        self.search_box.setStyleSheet(STYLES['input_fields'])
+        self.search_box.textChanged.connect(self.apply_filter)
+        self.search_box.setToolTip("Search scan history by target name or IP address")
+        filter_layout.addWidget(self.search_box)
+        
+        # Date range fields (optional)
+        date_label = QLabel("Date Range:")
+        date_label.setFont(QFont('Segoe UI', 10))
+        filter_layout.addWidget(date_label)
+        self.start_date = QDateEdit()
+        self.start_date.setCalendarPopup(True)
+        self.start_date.setDisplayFormat("yyyy-MM-dd")
+        self.start_date.setDate(QDate.currentDate().addMonths(-1))
+        self.start_date.dateChanged.connect(self.apply_filter)
+        self.start_date.setToolTip("Show scans from this date onward")
+        filter_layout.addWidget(self.start_date)
+        self.end_date = QDateEdit()
+        self.end_date.setCalendarPopup(True)
+        self.end_date.setDisplayFormat("yyyy-MM-dd")
+        self.end_date.setDate(QDate.currentDate())
+        self.end_date.dateChanged.connect(self.apply_filter)
+        self.end_date.setToolTip("Show scans up to this date")
+        filter_layout.addWidget(self.end_date)
         
         filter_layout.addStretch()
         
@@ -87,6 +119,7 @@ class SimpleHistoryPage(QWidget):
         self.refresh_btn = QPushButton("🔄 Refresh")
         self.refresh_btn.setStyleSheet(STYLES['buttons'])
         self.refresh_btn.clicked.connect(self.load_history)
+        self.refresh_btn.setToolTip("Reload scan history from the database")
         filter_layout.addWidget(self.refresh_btn)
         
         layout.addLayout(filter_layout)
@@ -94,6 +127,7 @@ class SimpleHistoryPage(QWidget):
         # History table
         self.history_table = SimpleHistoryTable()
         self.history_table.itemClicked.connect(self.show_details)
+        self.history_table.setToolTip("List of all scans. Click a row to see details below.")
         layout.addWidget(self.history_table)
         
         # Details panel
@@ -117,28 +151,42 @@ class SimpleHistoryPage(QWidget):
         # Action buttons
         button_layout = QHBoxLayout()
         
-        self.export_btn = QPushButton("💾 Export Full Data")
+        self.export_btn = QPushButton("💾 Export Full Data (JSON)")
         self.export_btn.setStyleSheet(STYLES['buttons'])
         self.export_btn.clicked.connect(self.export_history)
+        self.export_btn.setToolTip("Export full scan history as JSON file")
         button_layout.addWidget(self.export_btn)
-        
+
+        self.export_csv_btn = QPushButton("📄 Export as CSV")
+        self.export_csv_btn.setStyleSheet(STYLES['buttons'])
+        self.export_csv_btn.clicked.connect(self.export_history_csv)
+        self.export_csv_btn.setToolTip("Export scan history as CSV file for spreadsheets")
+        button_layout.addWidget(self.export_csv_btn)
+
+        self.export_pdf_btn = QPushButton("📝 Export as PDF")
+        self.export_pdf_btn.setStyleSheet(STYLES['buttons'])
+        self.export_pdf_btn.clicked.connect(self.export_history_pdf)
+        self.export_pdf_btn.setToolTip("Export scan history as a PDF report")
+        button_layout.addWidget(self.export_pdf_btn)
+
         self.clear_btn = QPushButton("🗑️ Clear All")
         self.clear_btn.setStyleSheet(STYLES['buttons'])
         self.clear_btn.clicked.connect(self.clear_history)
+        self.clear_btn.setToolTip("Clear all scan history (irreversible)")
         button_layout.addWidget(self.clear_btn)
         
         button_layout.addStretch()
         layout.addLayout(button_layout)
 
     def load_history(self):
-        """Load scan history from database"""
+        """Load scan history from database and store for filtering"""
         try:
             from core.database_manager import DatabaseManager
             db = DatabaseManager()
-            history = db.get_scan_history()
-            self.update_table(history)
+            self._all_history = db.get_scan_history()
+            self.apply_filter()
         except Exception as e:
-            QMessageBox.warning(self, "Error", f"Failed to load history: {str(e)}")
+            QMessageBox.critical(self, "Database Error", f"Failed to load history: {str(e)}")
 
     def update_table(self, history_data):
         """Update the history table with provided data"""
@@ -152,21 +200,37 @@ class SimpleHistoryPage(QWidget):
             )
 
     def apply_filter(self):
-        """Apply tool filter"""
+        """Apply all filters: tool, search, date"""
         try:
-            from core.database_manager import DatabaseManager
-            db = DatabaseManager()
-            history = db.get_scan_history()
+            history = getattr(self, '_all_history', None)
+            if history is None:
+                from core.database_manager import DatabaseManager
+                db = DatabaseManager()
+                history = db.get_scan_history()
+                self._all_history = history
             
             tool_filter = self.tool_filter.currentText()
-            if tool_filter != "All Tools":
-                filtered_history = [scan for scan in history if scan.tool_name == tool_filter]
-            else:
-                filtered_history = history
+            search_text = self.search_box.text().strip().lower()
+            start_date = self.start_date.date().toPyDate()
+            end_date = self.end_date.date().toPyDate()
             
-            self.update_table(filtered_history)
+            filtered = []
+            for scan in history:
+                # Tool filter
+                if tool_filter != "All Tools" and scan.tool_name != tool_filter:
+                    continue
+                # Search filter
+                if search_text and search_text not in scan.target.lower():
+                    continue
+                # Date filter
+                if scan.timestamp:
+                    scan_date = scan.timestamp.date() if hasattr(scan.timestamp, 'date') else scan.timestamp
+                    if scan_date < start_date or scan_date > end_date:
+                        continue
+                filtered.append(scan)
+            self.update_table(filtered)
         except Exception as e:
-            QMessageBox.warning(self, "Error", f"Failed to filter history: {str(e)}")
+            QMessageBox.critical(self, "Filter Error", f"Failed to filter history: {str(e)}")
 
     def show_details(self, item):
         """Show comprehensive details for selected scan"""
@@ -319,6 +383,63 @@ Error loading detailed results: {str(e)}"""
                 QMessageBox.information(self, "Success", f"Full scan history exported to {filename}")
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Failed to export: {str(e)}")
+
+    def export_history_csv(self):
+        """Export scan history to CSV file"""
+        import csv
+        try:
+            from core.database_manager import DatabaseManager
+            db = DatabaseManager()
+            history = db.get_scan_history()
+            filename, _ = QFileDialog.getSaveFileName(
+                self, "Export Scan History as CSV", "scan_history.csv", "CSV Files (*.csv)"
+            )
+            if filename:
+                with open(filename, 'w', newline='') as csvfile:
+                    writer = csv.writer(csvfile)
+                    writer.writerow(["Date", "Tool", "Target", "Status"])
+                    for scan in history:
+                        date_str = scan.timestamp.strftime("%Y-%m-%d %H:%M") if scan.timestamp else "Unknown"
+                        writer.writerow([date_str, scan.tool_name, scan.target, scan.status])
+                QMessageBox.information(self, "Success", f"Scan history exported to {filename}")
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"Failed to export CSV: {str(e)}")
+
+    def export_history_pdf(self):
+        """Export scan history to PDF file"""
+        try:
+            from core.database_manager import DatabaseManager
+            db = DatabaseManager()
+            history = db.get_scan_history()
+            from fpdf import FPDF
+            filename, _ = QFileDialog.getSaveFileName(
+                self, "Export Scan History as PDF", "scan_history.pdf", "PDF Files (*.pdf)"
+            )
+            if filename:
+                pdf = FPDF()
+                pdf.add_page()
+                pdf.set_font("Arial", size=12)
+                pdf.cell(0, 10, "Scan History Report", ln=True, align="C")
+                pdf.ln(10)
+                # Table header
+                pdf.set_font("Arial", 'B', 11)
+                col_widths = [40, 30, 70, 30]
+                headers = ["Date", "Tool", "Target", "Status"]
+                for i, header in enumerate(headers):
+                    pdf.cell(col_widths[i], 10, header, border=1, align="C")
+                pdf.ln()
+                pdf.set_font("Arial", size=10)
+                # Table rows
+                for scan in history:
+                    date_str = scan.timestamp.strftime("%Y-%m-%d %H:%M") if scan.timestamp else "Unknown"
+                    row = [date_str, scan.tool_name, scan.target, scan.status]
+                    for i, value in enumerate(row):
+                        pdf.cell(col_widths[i], 10, str(value), border=1)
+                    pdf.ln()
+                pdf.output(filename)
+                QMessageBox.information(self, "Success", f"Scan history exported to {filename}")
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"Failed to export PDF: {str(e)}")
 
     def clear_history(self):
         """Clear all scan history"""

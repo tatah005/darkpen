@@ -5,13 +5,17 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTabWidget,
                             QFrame, QGridLayout, QTreeWidget, QTreeWidgetItem,
                             QSplitter)
 from PyQt5.QtCore import Qt, pyqtSignal, QThread
-from PyQt5.QtGui import QColor, QFont
+from PyQt5.QtGui import QColor, QFont, QIcon
 from .cyberpunk_theme import COLORS, STYLES, FONTS, LAYOUT
 from core.ai_engine import AIEngine
+from core.metasploit_integration import MetasploitManager, ModuleType
+from core.database_manager import DatabaseManager
 import json
 import subprocess
 import re
 from datetime import datetime
+import os
+import tempfile
 
 class ConsoleOutput(QTextEdit):
     def __init__(self, parent=None):
@@ -347,6 +351,7 @@ class MetasploitPage(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.ai_engine = AIEngine()
+        self.metasploit_manager = MetasploitManager()
         self.setup_ui()
         self.current_analysis = None
         self.ai_thread = None
@@ -354,143 +359,227 @@ class MetasploitPage(QWidget):
     def setup_ui(self):
         layout = QVBoxLayout(self)
         layout.setSpacing(LAYOUT['margin'])
-        
-        # Create main splitter
         splitter = QSplitter(Qt.Horizontal)
-        
         # Left panel - Module selection and configuration
         left_panel = QFrame()
         left_panel.setObjectName("modulePanel")
-        left_panel.setStyleSheet(STYLES['content_panel'])
+        left_panel.setStyleSheet("""
+            QFrame {
+                background-color: #181c24;
+                border: 1.5px solid #00fff7;
+                border-radius: 12px;
+                padding: 12px;
+            }
+        """)
         left_layout = QVBoxLayout(left_panel)
-        
-        # Module tree
-        module_label = QLabel("📚 Exploit Modules")
-        module_label.setFont(QFont('Segoe UI', 12, QFont.Bold))
-        module_label.setStyleSheet(f"color: {COLORS['text_primary']};")
-        left_layout.addWidget(module_label)
-        
+        left_layout.setSpacing(10)
+        # Search bar
+        search_bar = QLineEdit()
+        search_bar.setPlaceholderText("Search modules...")
+        search_bar.setStyleSheet("background: #232946; color: #fff; border-radius: 8px; padding: 6px 12px; border: 1px solid #00fff7;")
+        left_layout.addWidget(search_bar)
+        # Metasploit status badge
+        status_badge = QLabel("Metasploit: ")
+        badge = QLabel("Available")
+        badge.setStyleSheet("background: #00e676; color: #181c24; border-radius: 10px; padding: 2px 10px; font-weight: bold;")
+        status_row = QHBoxLayout()
+        status_row.addWidget(status_badge)
+        status_row.addWidget(badge)
+        status_row.addStretch()
+        left_layout.addLayout(status_row)
+        # Module tree with icons
         self.module_tree = QTreeWidget()
-        self.module_tree.setHeaderLabel("Modules")
-        self.module_tree.setStyleSheet(STYLES['tree_widget'])
+        self.module_tree.setHeaderLabel("")
+        self.module_tree.setStyleSheet("background: #232946; color: #fff; border-radius: 8px; border: 1px solid #00fff7;")
         self.populate_module_tree()
         self.module_tree.itemClicked.connect(self.on_module_selected)
         left_layout.addWidget(self.module_tree)
-        
         splitter.addWidget(left_panel)
-        
         # Center panel - Module options and payload configuration
         center_panel = QFrame()
         center_panel.setObjectName("configPanel")
-        center_panel.setStyleSheet(STYLES['content_panel'])
+        center_panel.setStyleSheet("background: #181c24; border: 1.5px solid #00fff7; border-radius: 12px; padding: 12px;")
         center_layout = QVBoxLayout(center_panel)
-        
-        # Module info
+        center_layout.setSpacing(12)
+        # Section header
+        info_header = QLabel("Module Info")
+        info_header.setFont(QFont('Segoe UI', 13, QFont.Bold))
+        info_header.setStyleSheet("color: #00fff7; margin-bottom: 4px;")
+        center_layout.addWidget(info_header)
         self.module_info = QLabel("Select a module to begin")
         self.module_info.setFont(QFont('Segoe UI', 12, QFont.Bold))
-        self.module_info.setStyleSheet(f"color: {COLORS['text_primary']};")
+        self.module_info.setStyleSheet("color: #A3FF12;")
         center_layout.addWidget(self.module_info)
-        
-        # Options grid
+        # Target options section
+        target_header = QLabel("Target Options")
+        target_header.setFont(QFont('Segoe UI', 12, QFont.Bold))
+        target_header.setStyleSheet("color: #FFD600; margin-top: 8px;")
+        center_layout.addWidget(target_header)
         options_frame = QFrame()
-        options_frame.setStyleSheet(STYLES['input_frame'])
+        options_frame.setStyleSheet("background: #232946; border-radius: 8px; padding: 10px;")
         options_layout = QGridLayout(options_frame)
-        
-        # Target options
+        options_layout.setSpacing(8)
         options_layout.addWidget(QLabel("RHOST:"), 0, 0)
         self.rhost_input = QLineEdit()
-        self.rhost_input.setStyleSheet(STYLES['input_fields'])
+        self.rhost_input.setStyleSheet("background: #181c24; color: #fff; border-radius: 6px; padding: 6px 10px; border: 1px solid #00fff7;")
+        self.rhost_input.setToolTip("Target host IP or domain")
         options_layout.addWidget(self.rhost_input, 0, 1)
-        
         options_layout.addWidget(QLabel("RPORT:"), 1, 0)
         self.rport_input = QLineEdit()
-        self.rport_input.setStyleSheet(STYLES['input_fields'])
+        self.rport_input.setStyleSheet("background: #181c24; color: #fff; border-radius: 6px; padding: 6px 10px; border: 1px solid #00fff7;")
+        self.rport_input.setToolTip("Target port (default: 80)")
         options_layout.addWidget(self.rport_input, 1, 1)
-        
-        # Payload selection
-        options_layout.addWidget(QLabel("Payload:"), 2, 0)
+        payload_header = QLabel("Payload")
+        payload_header.setFont(QFont('Segoe UI', 12, QFont.Bold))
+        payload_header.setStyleSheet("color: #FFD600; margin-top: 8px;")
+        options_layout.addWidget(payload_header, 2, 0, 1, 2)
         self.payload_combo = QComboBox()
-        self.payload_combo.setStyleSheet(STYLES['combo_box'])
+        self.payload_combo.setStyleSheet("background: #181c24; color: #A3FF12; border-radius: 6px; padding: 6px 10px; border: 1px solid #00fff7;")
         self.payload_combo.addItems([
             "windows/meterpreter/reverse_tcp",
             "linux/x86/meterpreter/reverse_tcp",
             "python/meterpreter/reverse_tcp",
             "java/jsp_shell_reverse_tcp"
         ])
-        options_layout.addWidget(self.payload_combo, 2, 1)
-        
+        self.payload_combo.setToolTip("Payload to use for exploitation")
+        options_layout.addWidget(self.payload_combo, 3, 0, 1, 2)
         center_layout.addWidget(options_frame)
-        
         # Action buttons
         button_layout = QHBoxLayout()
-        
         self.check_button = QPushButton("🔍 Check")
-        self.check_button.setStyleSheet(STYLES['buttons'])
+        self.check_button.setStyleSheet("background: #00fff7; color: #181c24; border-radius: 8px; padding: 10px 24px; font-weight: bold;")
+        self.check_button.setToolTip("Check if the target is vulnerable")
         button_layout.addWidget(self.check_button)
-        
         self.run_button = QPushButton("🚀 Run")
-        self.run_button.setStyleSheet(STYLES['buttons'])
+        self.run_button.setStyleSheet("background: #A3FF12; color: #181c24; border-radius: 8px; padding: 10px 24px; font-weight: bold;")
+        self.run_button.setToolTip("Run the selected exploit against the target")
         button_layout.addWidget(self.run_button)
-        
         center_layout.addLayout(button_layout)
-        
         splitter.addWidget(center_panel)
-        
-        # Right panel - Console output
+        # Right panel - Console output and sessions
         right_panel = QFrame()
         right_panel.setObjectName("consolePanel")
-        right_panel.setStyleSheet(STYLES['content_panel'])
+        right_panel.setStyleSheet("background: #181c24; border: 1.5px solid #00fff7; border-radius: 12px; padding: 12px;")
         right_layout = QVBoxLayout(right_panel)
-        
+        right_layout.setSpacing(10)
+        # Tabs for console and sessions
+        right_tabs = QTabWidget()
+        right_tabs.setStyleSheet("QTabBar::tab { background: #232946; color: #00fff7; border-radius: 8px; padding: 8px 18px; font-weight: bold; } QTabBar::tab:selected { background: #00fff7; color: #181c24; }")
+        # Console tab
+        console_tab = QWidget()
+        console_layout = QVBoxLayout(console_tab)
         console_label = QLabel("🖥️ Console Output")
         console_label.setFont(QFont('Segoe UI', 12, QFont.Bold))
-        console_label.setStyleSheet(f"color: {COLORS['text_primary']};")
-        right_layout.addWidget(console_label)
-        
+        console_label.setStyleSheet("color: #00fff7;")
+        console_layout.addWidget(console_label)
         self.console = ConsoleOutput()
-        right_layout.addWidget(self.console)
-        
+        self.console.setStyleSheet("background: #232946; color: #A3FF12; border-radius: 8px; padding: 10px; font-family: 'Consolas';")
+        console_layout.addWidget(self.console)
+        # Clear console button
+        clear_btn = QPushButton("Clear Console")
+        clear_btn.setStyleSheet("background: #FFD600; color: #181c24; border-radius: 8px; padding: 6px 18px; font-weight: bold;")
+        clear_btn.clicked.connect(self.console.clear)
+        console_layout.addWidget(clear_btn)
+        right_tabs.addTab(console_tab, QIcon(), "Console")
+        # Sessions tab
+        sessions_tab = QWidget()
+        sessions_layout = QVBoxLayout(sessions_tab)
+        sessions_label = QLabel("🔗 Active Sessions")
+        sessions_label.setFont(QFont('Segoe UI', 12, QFont.Bold))
+        sessions_label.setStyleSheet("color: #00fff7;")
+        sessions_layout.addWidget(sessions_label)
+        self.sessions_table = QTableWidget()
+        self.sessions_table.setColumnCount(5)
+        self.sessions_table.setHorizontalHeaderLabels(["ID", "Type", "Target", "Tunnel", "Info"])
+        self.sessions_table.setStyleSheet("background: #232946; color: #fff; border-radius: 8px;")
+        sessions_layout.addWidget(self.sessions_table)
+        session_buttons = QHBoxLayout()
+        self.refresh_sessions_btn = QPushButton("🔄 Refresh")
+        self.refresh_sessions_btn.setStyleSheet("background: #00fff7; color: #181c24; border-radius: 8px; padding: 6px 18px; font-weight: bold;")
+        self.refresh_sessions_btn.clicked.connect(self.refresh_sessions)
+        session_buttons.addWidget(self.refresh_sessions_btn)
+        self.interact_session_btn = QPushButton("💬 Interact")
+        self.interact_session_btn.setStyleSheet("background: #A3FF12; color: #181c24; border-radius: 8px; padding: 6px 18px; font-weight: bold;")
+        self.interact_session_btn.clicked.connect(self.interact_session)
+        session_buttons.addWidget(self.interact_session_btn)
+        self.terminate_session_btn = QPushButton("❌ Terminate")
+        self.terminate_session_btn.setStyleSheet("background: #FFD600; color: #181c24; border-radius: 8px; padding: 6px 18px; font-weight: bold;")
+        self.terminate_session_btn.clicked.connect(self.terminate_session)
+        session_buttons.addWidget(self.terminate_session_btn)
+        sessions_layout.addLayout(session_buttons)
+        right_tabs.addTab(sessions_tab, QIcon(), "Sessions")
+        right_layout.addWidget(right_tabs)
         splitter.addWidget(right_panel)
-        
-        # Set splitter sizes
-        splitter.setSizes([200, 400, 400])
+        splitter.setSizes([220, 400, 400])
         layout.addWidget(splitter)
-        
-        # Connect signals
         self.check_button.clicked.connect(self.check_exploit)
         self.run_button.clicked.connect(self.run_exploit)
         
     def populate_module_tree(self):
-        # Add sample exploit categories and modules
-        categories = {
-            "Windows": [
-                "ms17_010_eternalblue",
-                "ms08_067_netapi",
-                "smb_login"
-            ],
-            "Linux": [
-                "vsftpd_234_backdoor",
-                "samba_symlink_traversal",
-                "distcc_exec"
-            ],
-            "Web Applications": [
-                "wordpress_admin_shell_upload",
-                "joomla_comfields_sqli_rce",
-                "drupal_drupalgeddon2"
-            ],
-            "Network Devices": [
-                "cisco_ios_shell",
-                "mikrotik_routeros",
-                "fortinet_fortigate_ssl_vpn"
-            ]
-        }
+        # Try to load actual Metasploit modules first
+        actual_modules = self.metasploit_manager.search_modules("", ModuleType.EXPLOIT)
         
-        for category, modules in categories.items():
-            cat_item = QTreeWidgetItem([category])
-            self.module_tree.addTopLevelItem(cat_item)
-            for module in modules:
-                module_item = QTreeWidgetItem([module])
-                cat_item.addChild(module_item)
+        if actual_modules:
+            # Group modules by category
+            categories = {
+                "Windows": [],
+                "Linux": [],
+                "Web Applications": [],
+                "Network Devices": [],
+                "Other": []
+            }
+            
+            for module in actual_modules[:50]:  # Limit to first 50 modules
+                if 'windows' in module.lower():
+                    categories["Windows"].append(module)
+                elif 'linux' in module.lower() or 'unix' in module.lower():
+                    categories["Linux"].append(module)
+                elif any(web in module.lower() for web in ['web', 'http', 'php', 'asp', 'jsp']):
+                    categories["Web Applications"].append(module)
+                elif any(net in module.lower() for net in ['cisco', 'router', 'switch', 'network']):
+                    categories["Network Devices"].append(module)
+                else:
+                    categories["Other"].append(module)
+            
+            # Add modules to tree
+            for category, modules in categories.items():
+                if modules:  # Only add categories that have modules
+                    cat_item = QTreeWidgetItem([category])
+                    self.module_tree.addTopLevelItem(cat_item)
+                    for module in modules[:10]:  # Limit to 10 modules per category
+                        module_item = QTreeWidgetItem([module])
+                        cat_item.addChild(module_item)
+        else:
+            # Fall back to demo modules
+            categories = {
+                "Windows": [
+                        "exploit/windows/smb/ms17_010_eternalblue",
+                        "exploit/windows/smb/ms08_067_netapi",
+                        "auxiliary/scanner/smb/smb_login"
+                ],
+                "Linux": [
+                        "exploit/unix/ftp/vsftpd_234_backdoor",
+                        "exploit/linux/samba/samba_symlink_traversal",
+                        "exploit/unix/misc/distcc_exec"
+                ],
+                "Web Applications": [
+                        "exploit/unix/webapp/wordpress_admin_shell_upload",
+                        "exploit/multi/http/joomla_comfields_sqli_rce",
+                        "exploit/unix/webapp/drupal_drupalgeddon2"
+                ],
+                "Network Devices": [
+                        "exploit/cisco/ios_shell",
+                        "exploit/linux/misc/mikrotik_routeros",
+                        "exploit/linux/misc/fortinet_fortigate_ssl_vpn"
+                ]
+            }
+            
+            for category, modules in categories.items():
+                cat_item = QTreeWidgetItem([category])
+                self.module_tree.addTopLevelItem(cat_item)
+                for module in modules:
+                    module_item = QTreeWidgetItem([module])
+                    cat_item.addChild(module_item)
     
     def on_module_selected(self, item, column):
         if item.parent():  # If it's a module (not a category)
@@ -500,17 +589,120 @@ class MetasploitPage(QWidget):
     def check_exploit(self):
         module = self.module_info.text().replace("Selected module: ", "")
         target = self.rhost_input.text()
-        self.console.append_output(f"[*] Checking {module} against {target}...")
-        self.console.append_output("[!] Note: This is a demo version. Metasploit integration is not available.")
+        port = self.rport_input.text() or "80"
+        if module == "Select a module to begin":
+            self.console.append_output("[!] Please select a module first")
+            return
+        if not target:
+            self.console.append_output("[!] Please enter a target (RHOST)")
+            return
+        self.console.append_output(f"[*] Checking {module} against {target}:{port}...")
+        result = self.metasploit_manager.check_module(module, target)
+        # Collect console output for saving
+        console_lines = []
+        status = "Failed"
+        if result['success']:
+            self.console.append_output(f"[+] {result['message']}")
+            console_lines.append(f"[+] {result['message']}")
+            if 'details' in result:
+                details = result['details']
+                lines = details.split('\n')
+                for line in lines:
+                    if any(keyword in line.lower() for keyword in ['vulnerable', 'safe', 'check', 'target', 'port']):
+                        msg = f"    {line.strip()}"
+                        self.console.append_output(msg)
+                        console_lines.append(msg)
+            status = "Success"
+        else:
+            self.console.append_output(f"[!] {result['message']}")
+            console_lines.append(f"[!] {result['message']}")
+            if not self.metasploit_manager.msfconsole_path:
+                self.console.append_output("[!] Metasploit not found. Please install Metasploit Framework.")
+                console_lines.append("[!] Metasploit not found. Please install Metasploit Framework.")
+        # Save to database
+        try:
+            db = DatabaseManager()
+            results = {
+                'module': module,
+                'target': target,
+                'port': port,
+                'output': '\n'.join(console_lines),
+                'details': result.get('details', '')
+            }
+            ai_analysis = self.current_analysis if self.current_analysis else ''
+            db.add_scan(
+                tool_name="Metasploit",
+                target=target,
+                status=status,
+                results=results,
+                ai_analysis=str(ai_analysis)
+            )
+        except Exception as e:
+            self.console.append_output(f"[!] Failed to save check to history: {str(e)}")
         
     def run_exploit(self):
         module = self.module_info.text().replace("Selected module: ", "")
         target = self.rhost_input.text()
+        port = self.rport_input.text() or "80"
         payload = self.payload_combo.currentText()
+        if module == "Select a module to begin":
+            self.console.append_output("[!] Please select a module first")
+            return
+        if not target:
+            self.console.append_output("[!] Please enter a target (RHOST)")
+            return
         self.console.append_output(f"[*] Launching {module}")
-        self.console.append_output(f"[*] Target: {target}")
+        self.console.append_output(f"[*] Target: {target}:{port}")
         self.console.append_output(f"[*] Payload: {payload}")
-        self.console.append_output("[!] Note: This is a demo version. Metasploit integration is not available.")
+        self.console.append_output("[*] Executing...")
+        result = self.metasploit_manager.run_exploit(module, target, port, payload)
+        # Collect console output for saving
+        console_lines = [
+            f"[*] Launching {module}",
+            f"[*] Target: {target}:{port}",
+            f"[*] Payload: {payload}",
+            "[*] Executing..."
+        ]
+        status = "Failed"
+        if result['success']:
+            self.console.append_output(f"[+] {result['message']}")
+            console_lines.append(f"[+] {result['message']}")
+            if 'details' in result:
+                details = result['details']
+                lines = details.split('\n')
+                for line in lines:
+                    if any(keyword in line.lower() for keyword in ['session', 'meterpreter', 'exploit', 'success', 'failed']):
+                        msg = f"    {line.strip()}"
+                        self.console.append_output(msg)
+                        console_lines.append(msg)
+            status = "Success"
+        else:
+            self.console.append_output(f"[!] {result['message']}")
+            console_lines.append(f"[!] {result['message']}")
+            if not self.metasploit_manager.msfconsole_path:
+                self.console.append_output("[!] Metasploit not found. Please install Metasploit Framework.")
+                console_lines.append("[!] Metasploit not found. Please install Metasploit Framework.")
+        # Save to database
+        try:
+            db = DatabaseManager()
+            results = {
+                'module': module,
+                'target': target,
+                'port': port,
+                'payload': payload,
+                'output': '\n'.join(console_lines),
+                'details': result.get('details', '')
+            }
+            ai_analysis = self.current_analysis if self.current_analysis else ''
+            db.add_scan(
+                tool_name="Metasploit",
+                target=target,
+                status=status,
+                results=results,
+                ai_analysis=str(ai_analysis)
+            )
+        except Exception as e:
+            self.console.append_output(f"[!] Failed to save exploit to history: {str(e)}")
         
     def apply_styling(self):
         # Dark theme with cyberpunk accents
@@ -592,94 +784,136 @@ class MetasploitPage(QWidget):
         
     def load_exploits(self):
         """Load available exploits into the list"""
-        exploits = self.tools_manager.get_msf_exploits()
-        self.exploit_list.clear()
-        for exploit in exploits:
-            self.exploit_list.addItem(exploit['name'])
+        # This method references non-existent UI elements
+        # Commented out to prevent AttributeError
+        pass
+        # exploits = self.tools_manager.get_msf_exploits()
+        # self.exploit_list.clear()
+        # for exploit in exploits:
+        #     self.exploit_list.addItem(exploit['name'])
             
     def search_exploits(self):
         """Search exploits based on input text"""
-        search_text = self.search_input.text().lower()
-        exploits = self.tools_manager.get_msf_exploits(search_text)
-        self.exploit_list.clear()
-        for exploit in exploits:
-            self.exploit_list.addItem(exploit['name'])
+        # This method references non-existent UI elements
+        # Commented out to prevent AttributeError
+        pass
+        # search_text = self.search_input.text().lower()
+        # exploits = self.tools_manager.get_msf_exploits(search_text)
+        # self.exploit_list.clear()
+        # for exploit in exploits:
+        #     self.exploit_list.addItem(exploit['name'])
             
     def filter_exploits(self):
         """Filter exploits based on selected category"""
-        filter_type = self.filter_combo.currentText()
+        # This method references non-existent UI elements
+        # Commented out to prevent AttributeError
+        pass
+        # filter_type = self.filter_combo.currentText()
         # Implementation depends on Metasploit's filtering capabilities
-        self.load_exploits()  # Reload with filter
+        # self.load_exploits()  # Reload with filter
         
     def show_exploit_details(self, item):
         """Display detailed information about selected exploit"""
-        exploit_name = item.text()
-        exploits = self.tools_manager.get_msf_exploits(exploit_name)
-        if exploits:
-            exploit = exploits[0]
-            details = f"""Name: {exploit['name']}
-Description: {exploit['description']}
-Rank: {exploit['rank']}
-
-References:
-{chr(10).join(exploit['references'])}
-
-Targets:
-{chr(10).join(str(t) for t in exploit['targets'])}
-"""
-            self.exploit_details.setText(details)
-            self.exploit_selected.emit(exploit_name)
+        # This method references non-existent UI elements
+        # Commented out to prevent AttributeError
+        pass
+        # exploit_name = item.text()
+        # exploits = self.tools_manager.get_msf_exploits(exploit_name)
+        # if exploits:
+        #     exploit = exploits[0]
+        #     details = f"""Name: {exploit['name']}
+        # Description: {exploit['description']}
+        # Rank: {exploit['rank']}
+        # 
+        # References:
+        # {chr(10).join(exploit['references'])}
+        # 
+        # Targets:
+        # {chr(10).join(str(t) for t in exploit['targets'])}
+        # """
+        #     self.exploit_details.setText(details)
+        #     self.exploit_selected.emit(exploit_name)
             
     def generate_payload(self):
         """Generate payload with selected options"""
-        options = {
-            'LHOST': self.lhost.text(),
-            'LPORT': self.lport.text()
-        }
-        
-        result = self.tools_manager.generate_payload(
-            self.payload_type.currentText(),
-            options
-        )
-        
-        if result['success']:
-            self.payload_output.setText(str(result['payload']))
-            self.payload_generated.emit(result)
-        else:
-            self.payload_output.setText(f"Error: {result['message']}")
+        # This method references non-existent UI elements
+        # Commented out to prevent AttributeError
+        pass
+        # options = {
+        #     'LHOST': self.lhost.text(),
+        #     'LPORT': self.lport.text()
+        # }
+        # 
+        # result = self.tools_manager.generate_payload(
+        #     self.payload_type.currentText(),
+        #     options
+        # )
+        # 
+        # if result['success']:
+        #     self.payload_output.setText(str(result['payload']))
+        #     self.payload_generated.emit(result)
+        # else:
+        #     self.payload_output.setText(f"Error: {result['message']}")
             
     def refresh_sessions(self):
         """Update the sessions table"""
-        sessions = self.tools_manager.get_active_sessions()
-        self.session_table.setRowCount(len(sessions))
+        sessions = self.metasploit_manager.get_active_sessions()
+        self.sessions_table.setRowCount(len(sessions))
         
         for i, session in enumerate(sessions):
-            self.session_table.setItem(i, 0, QTableWidgetItem(str(session['id'])))
-            self.session_table.setItem(i, 1, QTableWidgetItem(session['type']))
-            self.session_table.setItem(i, 2, QTableWidgetItem(session['target']))
-            self.session_table.setItem(i, 3, QTableWidgetItem(session['tunnel']))
-            self.session_table.setItem(i, 4, QTableWidgetItem(session['info']))
+            self.sessions_table.setItem(i, 0, QTableWidgetItem(str(session.id)))
+            self.sessions_table.setItem(i, 1, QTableWidgetItem(session.type))
+            self.sessions_table.setItem(i, 2, QTableWidgetItem(session.target))
+            self.sessions_table.setItem(i, 3, QTableWidgetItem(session.tunnel))
+            self.sessions_table.setItem(i, 4, QTableWidgetItem(session.info))
+            
+        self.console.append_output(f"[*] Refreshed sessions. Found {len(sessions)} active sessions.")
             
     def interact_session(self):
         """Open interaction with selected session"""
-        selected = self.session_table.selectedItems()
-        if selected:
-            session_id = selected[0].text()
-            # Implementation for session interaction
-            # This could open a new terminal window or console widget
+        selected = self.sessions_table.selectedItems()
+        if not selected:
+            self.console.append_output("[!] Please select a session first")
+            return
+            
+        session_id = int(selected[0].text())
+        self.console.append_output(f"[*] Interacting with session {session_id}...")
+        
+        result = self.metasploit_manager.interact_session(session_id)
+        if result['success']:
+            self.console.append_output(f"[+] {result['message']}")
+            if 'details' in result:
+                self.console.append_output(result['details'])
+        else:
+            self.console.append_output(f"[!] {result['message']}")
             
     def terminate_session(self):
         """Terminate selected session"""
-        selected = self.session_table.selectedItems()
-        if selected:
-            session_id = selected[0].text()
-            # Implementation for session termination 
+        selected = self.sessions_table.selectedItems()
+        if not selected:
+            self.console.append_output("[!] Please select a session first")
+            return
+            
+        session_id = int(selected[0].text())
+        self.console.append_output(f"[*] Terminating session {session_id}...")
+        
+        result = self.metasploit_manager.terminate_session(session_id)
+        if result['success']:
+            self.console.append_output(f"[+] {result['message']}")
+            self.refresh_sessions()  # Refresh the table
+        else:
+            self.console.append_output(f"[!] {result['message']}")
 
     def start_ai_analysis(self):
         """Start AI analysis of current configuration"""
         # Gather current configuration
+        module_name = self.module_info.text().replace("Selected module: ", "")
+        if module_name == "Select a module to begin":
+            self.console.append_output("[!] Please select a module first")
+            return
+            
         exploit_data = {
-            'name': self.module_combo.currentText(),
+            'name': module_name,
             'type': 'exploit',
             'rank': 'excellent',
             'successful_runs': 5,
@@ -701,68 +935,60 @@ Targets:
         self.ai_thread.analysis_ready.connect(self.handle_ai_analysis)
         self.ai_thread.start()
         
-        self.analyze_button.setEnabled(False)
-        self.analysis_output.append("[*] Running AI analysis...")
+        self.console.append_output("[*] Running AI analysis...")
         
     def handle_ai_analysis(self, analysis):
         """Handle AI analysis results"""
         self.current_analysis = analysis
-        self.analyze_button.setEnabled(True)
         
         if 'error' in analysis:
-            self.analysis_output.append(f"[!] Analysis Error: {analysis['error']}")
+            self.console.append_output(f"[!] Analysis Error: {analysis['error']}")
             return
-            
-        # Clear previous analysis
-        self.analysis_output.clear()
         
         # Format and display analysis results
-        self.analysis_output.append("🤖 AI Analysis Results\n")
+        self.console.append_output("🤖 AI Analysis Results")
         
         # Exploit Analysis
-        self.analysis_output.append("📊 Exploit Analysis:")
+        self.console.append_output("📊 Exploit Analysis:")
         exploit_analysis = analysis['exploit_analysis']
-        self.analysis_output.append(f"  • Reliability: {exploit_analysis['reliability']:.2%}")
-        self.analysis_output.append(f"  • Complexity: {exploit_analysis['complexity']:.2%}")
-        self.analysis_output.append(f"  • Impact: {exploit_analysis['impact']:.2%}")
-        self.analysis_output.append(f"  • Detection Risk: {exploit_analysis['detection_risk']:.2%}\n")
+        self.console.append_output(f"  • Reliability: {exploit_analysis['reliability']:.2%}")
+        self.console.append_output(f"  • Complexity: {exploit_analysis['complexity']:.2%}")
+        self.console.append_output(f"  • Impact: {exploit_analysis['impact']:.2%}")
+        self.console.append_output(f"  • Detection Risk: {exploit_analysis['detection_risk']:.2%}")
         
         # Success Probability
         prob = analysis['success_probability']
-        color = self._get_probability_color(prob)
-        self.analysis_output.append(
-            f"🎯 Success Probability: <span style='color: {color};'>{prob:.2%}</span>\n"
-        )
+        self.console.append_output(f"🎯 Success Probability: {prob:.2%}")
         
         # Recommendations
-        self.analysis_output.append("💡 AI Recommendations:")
+        self.console.append_output("💡 AI Recommendations:")
         recs = analysis['recommendations']
         if recs['proceed']:
-            self.analysis_output.append("  ✅ Proceed with exploitation")
+            self.console.append_output("  ✅ Proceed with exploitation")
         else:
-            self.analysis_output.append("  ⚠️ Additional preparation recommended")
+            self.console.append_output("  ⚠️ Additional preparation recommended")
             
         if recs['preparation_steps']:
-            self.analysis_output.append("\n  Preparation Steps:")
+            self.console.append_output("  Preparation Steps:")
             for step in recs['preparation_steps']:
-                self.analysis_output.append(f"   • {step}")
+                self.console.append_output(f"   • {step}")
                 
         if recs['execution_steps']:
-            self.analysis_output.append("\n  Execution Steps:")
+            self.console.append_output("  Execution Steps:")
             for step in recs['execution_steps']:
-                self.analysis_output.append(f"   • {step}")
+                self.console.append_output(f"   • {step}")
                 
         # Risk Assessment
-        self.analysis_output.append("\n⚠️ Risk Assessment:")
+        self.console.append_output("⚠️ Risk Assessment:")
         risks = analysis['risk_assessment']
-        self.analysis_output.append(f"  • Detection Probability: {risks['detection_probability']:.2%}")
-        self.analysis_output.append(f"  • Target Damage Risk: {risks['target_damage_risk']:.2%}")
-        self.analysis_output.append(f"  • Stability Risk: {risks['stability_risk']:.2%}")
+        self.console.append_output(f"  • Detection Probability: {risks['detection_probability']:.2%}")
+        self.console.append_output(f"  • Target Damage Risk: {risks['target_damage_risk']:.2%}")
+        self.console.append_output(f"  • Stability Risk: {risks['stability_risk']:.2%}")
         
         # Mitigation Suggestions
-        self.analysis_output.append("\n🛡️ Risk Mitigation:")
+        self.console.append_output("🛡️ Risk Mitigation:")
         for suggestion in risks['mitigation_suggestions']:
-            self.analysis_output.append(f"  • {suggestion}")
+            self.console.append_output(f"  • {suggestion}")
         
     def _get_probability_color(self, probability):
         """Get color based on probability"""
@@ -772,15 +998,3 @@ Targets:
             return COLORS['cyber_yellow']
         else:
             return COLORS['warning_red']
-        
-    def run_exploit(self):
-        """Run the configured exploit"""
-        if self.current_analysis and not self.current_analysis.get('recommendations', {}).get('proceed', False):
-            self.console.append_output("[!] Warning: AI analysis suggests additional preparation")
-            
-        # This would normally interface with Metasploit
-        self.console.append_output("[*] Starting exploitation...")
-        self.console.append_output(f"[*] Using module: {self.module_combo.currentText()}")
-        self.console.append_output(f"[*] Target: {self.rhost_input.text()}:{self.rport_input.text()}")
-        self.console.append_output(f"[*] Payload: {self.payload_combo.currentText()}")
-        self.console.append_output("[*] Executing...") 

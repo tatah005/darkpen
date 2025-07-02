@@ -566,50 +566,56 @@ class NiktoPage(QWidget):
         self.stop_button.setEnabled(False)
         
     def handle_output(self, output):
-        """Handle output from nikto scan with enhanced AI analysis"""
+        """Handle output from nikto scan with enhanced AI analysis and robust parsing"""
         self.terminal.append_output(output)
         self.scan_results.append(output)
-        
+
         # Try to parse and update findings in real-time with AI analysis
-        if "+ " in output or "OSVDB" in output:  # New finding detected
-            finding = self._parse_finding(output)
-            if finding:
-                # Get AI analysis for the finding
+        finding = self._parse_finding(output)
+        if finding:
+            # Get AI analysis for the finding
+            try:
                 ai_analysis = self.ai_engine.analyze_vulnerability(finding['title'])
                 finding.update(ai_analysis)
-                
-                # Update the finding with AI insights
                 finding['ai_recommendations'] = self._get_ai_recommendations(finding)
                 finding['attack_vectors'] = self._get_attack_vectors(finding)
                 finding['defense_strategies'] = self._get_defense_strategies(finding)
-                
-                self.current_findings.append(finding)
-                self.vuln_panel.update_analysis(self.current_findings)
+            except Exception as e:
+                finding['ai_error'] = f"AI analysis error: {str(e)}"
+            self.current_findings.append(finding)
+            self.vuln_panel.update_analysis(self.current_findings)
     
     def _parse_finding(self, output):
-        """Parse finding with enhanced AI context awareness"""
+        """Parse finding with enhanced robustness for various Nikto output formats"""
         finding = {
             'timestamp': datetime.now().isoformat(),
             'raw_output': output
         }
-        
-        # Extract OSVDB ID
-        osvdb_match = re.search(r'OSVDB-(\d+)', output)
-        if osvdb_match:
-            finding['osvdb'] = osvdb_match.group(1)
-        
-        # Extract title and details
-        if ': ' in output:
-            finding['title'] = output.split(': ', 1)[1]
+        # Try to parse JSON output
+        try:
+            if output.strip().startswith('{') or output.strip().startswith('['):
+                import json
+                data = json.loads(output)
+                if isinstance(data, dict) and 'id' in data:
+                    finding['title'] = data.get('id', 'Nikto Finding')
+                    finding['details'] = data.get('description', '')
+                elif isinstance(data, list) and data:
+                    finding['title'] = data[0].get('id', 'Nikto Finding')
+                    finding['details'] = data[0].get('description', '')
+                return finding
+        except Exception:
+            pass
+        # Try to parse CSV output
+        if ',' in output and output.count(',') >= 2:
+            parts = output.split(',')
+            finding['title'] = parts[1].strip() if len(parts) > 1 else output
+            finding['details'] = ','.join(parts[2:]).strip() if len(parts) > 2 else ''
+            return finding
+        # Fallback: parse as plain text
+        if '+ ' in output or 'OSVDB' in output:
+            finding['title'] = output.split(': ', 1)[1] if ': ' in output else output
         else:
             finding['title'] = output
-        
-        # Extract additional context
-        if 'Server: ' in output:
-            finding['server_info'] = output.split('Server: ', 1)[1].strip()
-        if 'Cookie: ' in output:
-            finding['cookies'] = output.split('Cookie: ', 1)[1].strip()
-            
         return finding
     
     def _get_ai_recommendations(self, finding):
@@ -690,193 +696,20 @@ class NiktoPage(QWidget):
         self.terminal.append_output("[✓] Scan completed!")
         self.start_button.setEnabled(True)
         self.stop_button.setEnabled(False)
-        
-        # Final analysis
+        # Final analysis with robust parsing
         findings = self._parse_scan_results()
+        if not findings:
+            self.terminal.append_output("[!] No findings detected or output could not be parsed.")
         self.vuln_panel.update_analysis(findings)
         
     def _parse_scan_results(self):
-        """Parse Nikto output into structured findings with enhanced analysis"""
+        """Parse Nikto output into structured findings with enhanced robustness"""
         findings = []
-        current_finding = None
-        
         for line in self.scan_results:
-            # Look for various types of findings
-            if "+ " in line or "OSVDB" in line:
-                if current_finding:
-                    findings.append(current_finding)
-                
-                # Extract OSVDB ID if present
-                osvdb_id = None
-                osvdb_match = re.search(r'OSVDB-(\d+)', line)
-                if osvdb_match:
-                    osvdb_id = osvdb_match.group(1)
-                
-                # Parse the finding details
-                current_finding = {
-                    'osvdb': osvdb_id,
-                    'title': line.split(': ', 1)[1] if ': ' in line else line,
-                    'severity': self._assess_severity(line),
-                    'type': self._categorize_finding(line),
-                    'details': '',
-                    'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                    'url': self.current_target
-                }
-                
-                # Extract additional context
-                if 'Server:' in line:
-                    current_finding['server_info'] = line.split('Server:', 1)[1].strip()
-                if 'Cookie:' in line:
-                    current_finding['cookies'] = line.split('Cookie:', 1)[1].strip()
-                
-            # Additional details for current finding
-            elif current_finding and line.strip():
-                current_finding['details'] += line + '\n'
-        
-        # Add last finding
-        if current_finding:
-            findings.append(current_finding)
-        
-        # Sort findings by severity
+            finding = self._parse_finding(line)
+            if finding and finding.get('title'):
+                findings.append(finding)
+        # Sort findings by severity if available
         severity_order = {'Critical': 0, 'High': 1, 'Medium': 2, 'Low': 3}
-        findings.sort(key=lambda x: severity_order.get(x['severity'], 4))
-        
-        return findings
-        
-    def _assess_severity(self, text: str) -> str:
-        """Enhanced severity assessment based on comprehensive criteria"""
-        text = text.lower()
-        
-        # Critical vulnerabilities
-        if any(x in text for x in [
-            'remote code execution',
-            'rce',
-            'sql injection',
-            'command injection',
-            'arbitrary file upload',
-            'authentication bypass',
-            'remote file inclusion'
-        ]):
-            return 'Critical'
-            
-        # High severity issues
-        elif any(x in text for x in [
-            'xss',
-            'csrf',
-            'directory traversal',
-            'information disclosure',
-            'weak cipher',
-            'ssl vulnerability',
-            'backdoor',
-            'default credential'
-        ]):
-            return 'High'
-            
-        # Medium severity issues
-        elif any(x in text for x in [
-            'deprecated',
-            'misconfiguration',
-            'information leakage',
-            'verbose error',
-            'outdated software',
-            'missing header'
-        ]):
-            return 'Medium'
-            
-        return 'Low'
-        
-    def _categorize_finding(self, text: str) -> str:
-        """Enhanced categorization of findings"""
-        text = text.lower()
-        
-        categories = {
-            'ssl': ['ssl', 'tls', 'cipher', 'certificate'],
-            'injection': ['sql', 'injection', 'rce', 'command', 'shell'],
-            'xss': ['xss', 'script', 'cross-site scripting'],
-            'csrf': ['csrf', 'cross-site request'],
-            'auth': ['authentication', 'password', 'credential', 'login'],
-            'info_disclosure': ['information disclosure', 'leakage', 'verbose'],
-            'configuration': ['misconfiguration', 'default', 'unnecessary'],
-            'outdated': ['outdated', 'deprecated', 'old version'],
-            'headers': ['header', 'hsts', 'csp', 'security policy']
-        }
-        
-        for category, keywords in categories.items():
-            if any(keyword in text for keyword in keywords):
-                return category
-                
-        return 'general'
-        
-    def _get_attack_recommendations(self, finding: dict) -> List[str]:
-        """Get specific attack recommendations based on the finding"""
-        category = finding['type']
-        recommendations = []
-        
-        if category == 'ssl':
-            recommendations.extend([
-                "Run SSLScan for detailed cipher analysis",
-                "Check for Heartbleed vulnerability",
-                "Verify certificate validity and chain",
-                "Test for SSL/TLS downgrade attacks"
-            ])
-        elif category == 'injection':
-            recommendations.extend([
-                "Implement input validation",
-                "Use parameterized queries",
-                "Apply proper escaping",
-                "Use prepared statements",
-                "Regular code security reviews"
-            ])
-        elif category == 'xss':
-            recommendations.extend([
-                "Implement Content Security Policy (CSP)",
-                "Use proper output encoding",
-                "Validate and sanitize input",
-                "Use security headers",
-                "Regular XSS vulnerability scanning"
-            ])
-        elif category == 'auth':
-            recommendations.extend([
-                "Test default credentials",
-                "Try password brute forcing",
-                "Check for authentication bypass",
-                "Test password reset functionality"
-            ])
-            
-        return recommendations
-        
-    def _get_mitigation_steps(self, finding: dict) -> List[str]:
-        """Get specific mitigation steps based on the finding"""
-        category = finding['type']
-        steps = []
-        
-        if category == 'ssl':
-            steps.extend([
-                "Upgrade to latest TLS version",
-                "Disable weak ciphers",
-                "Implement HSTS",
-                "Use strong certificates"
-            ])
-        elif category == 'injection':
-            steps.extend([
-                "Implement input validation",
-                "Use parameterized queries",
-                "Apply WAF rules",
-                "Update to secure frameworks"
-            ])
-        elif category == 'xss':
-            steps.extend([
-                "Implement CSP headers",
-                "Use proper output encoding",
-                "Apply XSS filters",
-                "Validate all user input"
-            ])
-        elif category == 'auth':
-            steps.extend([
-                "Implement strong password policy",
-                "Use MFA where possible",
-                "Secure session management",
-                "Regular security audits"
-            ])
-            
-        return steps 
+        findings.sort(key=lambda x: severity_order.get(x.get('severity', 'Low'), 4))
+        return findings 

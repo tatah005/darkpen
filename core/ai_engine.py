@@ -31,7 +31,9 @@ class VulnerabilityDatabase:
         
     def _init_db(self):
         """Initialize the vulnerability database"""
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        parent = self.db_path.parent
+        if str(parent) and str(parent) != '.' and not parent.exists():
+            parent.mkdir(parents=True, exist_ok=True)
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
@@ -282,10 +284,9 @@ class AIEngine:
         return recommendations
     
     def analyze_scan_results(self, scan_data: Dict) -> Dict:
-        """Analyze scan results with optimized processing"""
+        """Analyze scan results with optimized processing and transparent scoring"""
         if not scan_data or not scan_data.get('services'):
             return {}
-            
         analysis = {
             'timestamp': datetime.now().isoformat(),
             'target': scan_data.get('target', 'unknown'),
@@ -294,10 +295,12 @@ class AIEngine:
             'risk_metrics': {
                 'overall_risk': 0.0,
                 'attack_surface': 0.0,
-                'critical_findings': 0
-            }
+                'critical_findings': 0,
+                'score_breakdown': {}
+            },
+            'recommendations': [],
+            'explanation': ''
         }
-        
         # Process all services at once
         services = scan_data['services']
         for port, service in services.items():
@@ -309,7 +312,6 @@ class AIEngine:
                 'attack_vectors': [],
                 'immediate_actions': []
             }
-            
             # Quick service analysis
             if finding['service'] in self.attack_vectors:
                 vector = self.attack_vectors[finding['service']]
@@ -317,22 +319,38 @@ class AIEngine:
                     finding['risk_level'] = 'Medium'
                     finding['attack_vectors'] = self._get_quick_attack_vectors(finding['service'], port)
                     finding['immediate_actions'] = self._get_quick_actions(finding['service'])
-            
             analysis['findings'].append(finding)
-        
-        # Calculate overall metrics
+        # Calculate overall metrics with breakdown
         critical_services = ['mysql', 'mssql', 'postgresql', 'mongodb']
         exposed_web = any(f['service'] in ['http', 'https'] for f in analysis['findings'])
         exposed_db = any(f['service'] in critical_services for f in analysis['findings'])
-        
+        score_breakdown = {}
         if exposed_db:
             analysis['risk_metrics']['overall_risk'] = 0.8
             analysis['risk_metrics']['critical_findings'] += 1
+            score_breakdown['Database Exposure'] = 0.8
         elif exposed_web:
             analysis['risk_metrics']['overall_risk'] = 0.6
-        
+            score_breakdown['Web Exposure'] = 0.6
+        else:
+            score_breakdown['No Critical Exposure'] = 0.2
         analysis['risk_metrics']['attack_surface'] = len(analysis['findings']) * 0.1
-        
+        score_breakdown['Attack Surface'] = analysis['risk_metrics']['attack_surface']
+        analysis['risk_metrics']['score_breakdown'] = score_breakdown
+        # Add actionable recommendations
+        recs = []
+        if exposed_db:
+            recs.append("🔴 Secure exposed database services (MySQL, MSSQL, PostgreSQL, MongoDB)")
+        if exposed_web:
+            recs.append("🟡 Harden web services (HTTP/HTTPS): patch, use WAF, secure headers")
+        if not recs:
+            recs.append("🟢 No critical exposures detected. Maintain regular patching and monitoring.")
+        analysis['recommendations'] = recs
+        # Add transparent explanation
+        explanation = "Risk score is based on detected services. "
+        for k, v in score_breakdown.items():
+            explanation += f"{k}: {v}. "
+        analysis['explanation'] = explanation
         return analysis
         
     def _get_quick_attack_vectors(self, service: str, port: int) -> List[Dict]:

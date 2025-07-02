@@ -673,6 +673,7 @@ class NmapPage(QWidget):
             }}
         """)
         self.target_input.setPlaceholderText("Enter IP or hostname (e.g. 192.168.1.1)")
+        self.target_input.setToolTip("Enter the IP address or hostname to scan")
         target_layout.addWidget(self.target_input)
         
         left_layout.addLayout(target_layout)
@@ -708,6 +709,7 @@ class NmapPage(QWidget):
             "Vulnerability Scan (-sV --script vuln)",
             "Custom"
         ])
+        self.scan_type.setToolTip("Select the type of Nmap scan to perform")
         left_layout.addWidget(self.scan_type)
         
         # Custom options
@@ -747,6 +749,7 @@ class NmapPage(QWidget):
             }}
         """)
         self.start_button.clicked.connect(self.start_scan)
+        self.start_button.setToolTip("Start the Nmap scan on the specified target")
         button_layout.addWidget(self.start_button)
         
         self.stop_button = QPushButton("⏹ Stop")
@@ -766,6 +769,7 @@ class NmapPage(QWidget):
         """)
         self.stop_button.clicked.connect(self.stop_scan)
         self.stop_button.setEnabled(False)
+        self.stop_button.setToolTip("Stop the current scan")
         button_layout.addWidget(self.stop_button)
         
         left_layout.addLayout(button_layout)
@@ -781,6 +785,7 @@ class NmapPage(QWidget):
         left_layout.addWidget(terminal_label)
         
         self.terminal = TerminalOutput()
+        self.terminal.setToolTip("Nmap scan output and AI analysis will appear here")
         left_layout.addWidget(self.terminal)
         
         splitter.addWidget(left_panel)
@@ -922,7 +927,10 @@ class NmapPage(QWidget):
             self.terminal.append_output(f"[!] Failed to save scan to database: {str(e)}")
         
     def handle_output(self, output):
-        self.terminal.append_output(output)
+        if 'error' in output.lower() or '[!]' in output:
+            self.terminal.append_output(f"<span style='color: red;'>{output}</span>")
+        else:
+            self.terminal.append_output(output)
         self.scan_results.append(output)
         
         # Try to parse and update AI analysis in real-time
