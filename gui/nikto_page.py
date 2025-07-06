@@ -712,4 +712,4 @@ class NiktoPage(QWidget):
         # Sort findings by severity if available
         severity_order = {'Critical': 0, 'High': 1, 'Medium': 2, 'Low': 3}
         findings.sort(key=lambda x: severity_order.get(x.get('severity', 'Low'), 4))
-        return findings 
+        return findings

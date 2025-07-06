@@ -172,21 +172,21 @@ class AIRecommendationEngine:
     
     def _init_db(self):
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS vulnerabilities (
-                    id TEXT PRIMARY KEY,
-                    cve_id TEXT,
-                    description TEXT,
-                    severity TEXT,
-                    recommendation TEXT,
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS vulnerabilities (
+                id TEXT PRIMARY KEY,
+                cve_id TEXT,
+                description TEXT,
+                severity TEXT,
+                recommendation TEXT,
                 context TEXT,
                 timestamp TEXT
-                )
-            ''')
-            conn.commit()
-            conn.close()
+            )
+        ''')
+        conn.commit()
+        conn.close()
     
     def analyze_scan_results(self, scan_data: Dict) -> List[Dict]:
         """Analyze scan results and provide AI-powered recommendations"""

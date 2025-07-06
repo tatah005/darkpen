@@ -89,14 +89,14 @@ class NmapScanner:
             # Check for common vulnerabilities
             if service_name == 'ssh' and version:
                 if '7.' in version:
-                vulns.append(f"Potential SSH vulnerability (CVE-2023-38408) on port {port}")
+                    vulns.append(f"Potential SSH vulnerability (CVE-2023-38408) on port {port}")
                 if '6.6' in version:
                     vulns.append(f"OpenSSH < 6.7 vulnerability on port {port}")
             
             if 'http' in service_name:
                 if 'Apache' in product:
                     if '2.4.49' in version:
-                vulns.append(f"Apache Path Traversal (CVE-2021-41773) on port {port}")
+                        vulns.append(f"Apache Path Traversal (CVE-2021-41773) on port {port}")
                     if version.startswith('2.4.') and int(version.split('.')[2]) < 50:
                         vulns.append(f"Apache < 2.4.50 potential vulnerabilities on port {port}")
             
@@ -122,6 +122,6 @@ if __name__ == "__main__":
     scanner = NmapScanner()
     try:
         result = scanner.scan("127.0.0.1", arguments="-F -sV")
-    print(json.dumps(result.__dict__, indent=2))
+        print(json.dumps(result.__dict__, indent=2))
     except Exception as e:
         print(f"Scan failed: {e}")

