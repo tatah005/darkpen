@@ -355,7 +355,10 @@ class MetasploitPage(QWidget):
         self.setup_ui()
         self.current_analysis = None
         self.ai_thread = None
-        
+        self.last_output = ""
+        self.interpretation_text = ""
+        self.guidance_text = ""
+
     def setup_ui(self):
         layout = QVBoxLayout(self)
         layout.setSpacing(LAYOUT['margin'])
@@ -463,8 +466,8 @@ class MetasploitPage(QWidget):
         right_layout = QVBoxLayout(right_panel)
         right_layout.setSpacing(10)
         # Tabs for console and sessions
-        right_tabs = QTabWidget()
-        right_tabs.setStyleSheet("QTabBar::tab { background: #232946; color: #00fff7; border-radius: 8px; padding: 8px 18px; font-weight: bold; } QTabBar::tab:selected { background: #00fff7; color: #181c24; }")
+        self.tabs = QTabWidget()
+        self.tabs.setStyleSheet("QTabBar::tab { background: #232946; color: #00fff7; border-radius: 8px; padding: 8px 18px; font-weight: bold; } QTabBar::tab:selected { background: #00fff7; color: #181c24; }")
         # Console tab
         console_tab = QWidget()
         console_layout = QVBoxLayout(console_tab)
@@ -480,10 +483,10 @@ class MetasploitPage(QWidget):
         clear_btn.setStyleSheet("background: #FFD600; color: #181c24; border-radius: 8px; padding: 6px 18px; font-weight: bold;")
         clear_btn.clicked.connect(self.console.clear)
         console_layout.addWidget(clear_btn)
-        right_tabs.addTab(console_tab, QIcon(), "Console")
+        self.tabs.addTab(console_tab, QIcon(), "Console")
         # Sessions tab
-        sessions_tab = QWidget()
-        sessions_layout = QVBoxLayout(sessions_tab)
+        self.sessions_tab = QWidget()
+        sessions_layout = QVBoxLayout(self.sessions_tab)
         sessions_label = QLabel("🔗 Active Sessions")
         sessions_label.setFont(QFont('Segoe UI', 12, QFont.Bold))
         sessions_label.setStyleSheet("color: #00fff7;")
@@ -507,8 +510,19 @@ class MetasploitPage(QWidget):
         self.terminate_session_btn.clicked.connect(self.terminate_session)
         session_buttons.addWidget(self.terminate_session_btn)
         sessions_layout.addLayout(session_buttons)
-        right_tabs.addTab(sessions_tab, QIcon(), "Sessions")
-        right_layout.addWidget(right_tabs)
+        self.tabs.addTab(self.sessions_tab, QIcon(), "Sessions")
+        # Interpretation & Guidance tab
+        self.interpretation_tab = QWidget()
+        interp_layout = QVBoxLayout(self.interpretation_tab)
+        self.interp_summary = QLabel("<b>Summary:</b> No results yet.")
+        self.interp_summary.setWordWrap(True)
+        self.interp_guidance = QLabel("<b>Guided Steps:</b> Run an exploit or interact with a session to see guidance here.")
+        self.interp_guidance.setWordWrap(True)
+        interp_layout.addWidget(self.interp_summary)
+        interp_layout.addWidget(self.interp_guidance)
+        interp_layout.addStretch()
+        self.tabs.addTab(self.interpretation_tab, "Interpretation & Guidance")
+        right_layout.addWidget(self.tabs)
         splitter.addWidget(right_panel)
         splitter.setSizes([220, 400, 400])
         layout.addWidget(splitter)
@@ -619,6 +633,8 @@ class MetasploitPage(QWidget):
             if not self.metasploit_manager.msfconsole_path:
                 self.console.append_output("[!] Metasploit not found. Please install Metasploit Framework.")
                 console_lines.append("[!] Metasploit not found. Please install Metasploit Framework.")
+        # Update interpretation tab
+        self.update_interpretation(result.get('details', result['message']))
         # Save to database
         try:
             db = DatabaseManager()
@@ -682,6 +698,8 @@ class MetasploitPage(QWidget):
             if not self.metasploit_manager.msfconsole_path:
                 self.console.append_output("[!] Metasploit not found. Please install Metasploit Framework.")
                 console_lines.append("[!] Metasploit not found. Please install Metasploit Framework.")
+        # Update interpretation tab
+        self.update_interpretation(result.get('details', result['message']))
         # Save to database
         try:
             db = DatabaseManager()
@@ -990,6 +1008,41 @@ class MetasploitPage(QWidget):
         for suggestion in risks['mitigation_suggestions']:
             self.console.append_output(f"  • {suggestion}")
         
+    def update_interpretation(self, output):
+        self.last_output = output
+        summary, guidance = self._interpret_output(output)
+        self.interp_summary.setText(f"<b>Scan Interpretation:</b><br>{summary}")
+        self.interp_guidance.setText(f"<b>What to do next:</b><br>{guidance}")
+
+    def _interpret_output(self, output):
+        # Enhanced rule-based interpretation with emojis, risk callouts, and actionable advice
+        output_lower = output.lower()
+        if 'meterpreter session' in output_lower or 'session opened' in output_lower:
+            summary = "<b>🚨 Success! A Meterpreter session was opened. You have remote access to the target.</b>"
+            guidance = "<ul><li>Interact with the session using the Sessions tab.</li><li>Run post-exploitation modules (e.g., hashdump, privilege escalation).</li><li>Document your findings and actions.</li><li>Clean up after testing to avoid leaving traces.</li></ul>"
+        elif 'exploit completed' in output_lower or 'exploit successful' in output_lower:
+            summary = "<b>✅ Exploit completed. Check if a session was created.</b>"
+            guidance = "<ul><li>Check the Sessions tab for new sessions.</li><li>If no session, try a different payload or module.</li><li>Review the output for errors or hints.</li></ul>"
+        elif 'target appears safe' in output_lower or 'not vulnerable' in output_lower:
+            summary = "<b>🟢 Target appears safe or not vulnerable to this exploit.</b>"
+            guidance = "<ul><li>Try a different module or exploit.</li><li>Verify the target's configuration and patch level.</li><li>Consider using auxiliary modules for further information gathering.</li></ul>"
+        elif 'timed out' in output_lower:
+            summary = "<b>🟡 Operation timed out. Metasploit may be slow to respond.</b>"
+            guidance = "<ul><li>Check system resources and network connectivity.</li><li>Try again or increase the timeout value.</li><li>Ensure Metasploit and the target are running correctly.</li></ul>"
+        elif 'error' in output_lower or '[!]' in output_lower:
+            summary = "<b>❌ An error occurred during the operation.</b>"
+            guidance = "<ul><li>Review the error message in the output.</li><li>Check your module options and target settings.</li><li>Consult the documentation or logs for troubleshooting.</li></ul>"
+        elif 'failed' in output_lower:
+            summary = "<b>🔴 Exploit attempt failed.</b>"
+            guidance = "<ul><li>Try a different exploit or payload.</li><li>Check if the target is patched or protected.</li><li>Review the output for clues and adjust your approach.</li></ul>"
+        elif 'no session' in output_lower:
+            summary = "<b>🟡 No session was created after exploit attempt.</b>"
+            guidance = "<ul><li>Try a different payload or module.</li><li>Check for network issues or target protections.</li></ul>"
+        else:
+            summary = "<b>ℹ️ No specific interpretation available. Review the output for details.</b>"
+            guidance = "<ul><li>Review the raw output above.</li><li>Try another module or consult documentation.</li></ul>"
+        return summary, guidance
+
     def _get_probability_color(self, probability):
         """Get color based on probability"""
         if probability >= 0.7:

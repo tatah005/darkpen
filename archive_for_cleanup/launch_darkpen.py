@@ -38,13 +38,12 @@ def main():
     
     print("🚀 Starting DarkPen - AI-Powered Penetration Testing Platform...")
     
-    # Check Metasploit first
-    if not check_metasploit():
-        print("❌ Metasploit Framework not found")
-        print("   Please install Metasploit Framework to use DarkPen")
-        return
-    
-    print("✅ Metasploit Framework detected")
+    # --- BYPASSING METASPLOIT CHECK FOR GUI LAUNCH ---
+    # if not check_metasploit():
+    #     print("❌ Metasploit Framework not found")
+    #     print("   Please install Metasploit Framework to use DarkPen")
+    #     return
+    print("✅ [Bypass] Skipping Metasploit check for GUI launch")
     
     # Check if display is available
     if not check_display_available():

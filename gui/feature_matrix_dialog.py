@@ -36,11 +36,24 @@ class FeatureMatrixDialog(QDialog):
         table.setHorizontalHeaderLabels(["Feature", "Status"])
         features = [
             ("Nmap Scanning", "✅ Fully Implemented"),
-            ("Nikto Scanning", "✅ Implemented (Some Limitations)"),
+            ("Nikto Web Scanning", "✅ Fully Implemented"),
+            ("SQLMap Integration", "✅ Fully Implemented"),
             ("Metasploit Module", "✅ Implemented (Requires Metasploit, May Timeout)"),
-            ("AI Rule Engine", "✅ Implemented (Basic + Some Advanced)"),
-            ("History Filtering", "✅ Fully Implemented"),
-            ("CSV/PDF Export", "❌ Not Available (JSON Only)")
+            ("AI Rule Engine", "✅ Advanced AI Analysis (Basic, Enhanced Coming Soon)"),
+            ("History Filtering & Management", "✅ Fully Implemented"),
+            ("Export (JSON, CSV, PDF)", "✅ Fully Implemented"),
+            ("Compliance Mapping", "✅ Fully Implemented"),
+            ("Feature Matrix", "✅ This Dialog!"),
+            ("Disclaimer & Responsible Use", "✅ Fully Implemented"),
+            ("Dark Theme / Cyberpunk UI", "✅ Fully Implemented"),
+            ("Modular Scanner Tabs", "✅ Fully Implemented"),
+            ("Custom Scan Options", "✅ Fully Implemented"),
+            ("Cloud Sync", "🚧 Planned (Future Release)"),
+            ("Real-time Collaboration", "🚧 Planned (Future Release)"),
+            ("Enhanced AI Integration (LLM, Threat Intel)", "🚧 Planned (Next Major Release)"),
+            ("Vulnerability Auto-Remediation", "🚧 Planned"),
+            ("Plugin/Extension System", "🚧 Planned"),
+            ("Mobile App Companion", "🚧 Planned"),
         ]
         table.setRowCount(len(features))
         for i, (feature, status) in enumerate(features):

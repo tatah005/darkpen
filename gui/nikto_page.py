@@ -37,25 +37,22 @@ class NiktoScanThread(QThread):
                     # Full scan with all checks
                     cmd.extend(['-Tuning', '123456789abcx'])
                 elif option == "SSL":
-                    # Force SSL mode and check SSL/TLS issues
-                    cmd.extend(['-ssl', '-sslcheck'])
+                    # Force SSL mode (do not add -sslcheck)
+                    cmd.append('-ssl')
                 elif option == "Verbose":
                     # Enhanced verbosity for better AI analysis
-                    cmd.extend(['-Display', 'V', '-Show', ''])
+                    cmd.extend(['-Display', 'V'])
                 elif option == "evasion":
                     # Advanced evasion techniques
                     cmd.extend(['-evasion', '123'])  # Multiple evasion methods
-            
             # Add output format for better parsing
-            cmd.extend(['-Format', 'csv'])
-            
-            # Add additional useful options
+            # (Permanently removed '-Format', 'csv' to prevent output file format error)
+            # Add additional useful options (remove -vhost, -Show, -sslcheck)
             cmd.extend([
                 '-nointeractive',  # Non-interactive mode
                 '-Plugins', 'ALL',  # Enable all plugins
                 '-timeout', '30',   # Reasonable timeout
                 '-useragent', 'Mozilla/5.0',  # Common user agent
-                '-vhost',          # Check virtual hosts
             ])
             
             self.output_received.emit(f"[*] Running enhanced Nikto scan: {' '.join(cmd)}")
@@ -199,14 +196,15 @@ class VulnerabilityPanel(QWidget):
         """Update the analysis with new findings and enhanced insights"""
         self.findings_text.clear()
         self.recom_text.clear()
-        
+
         if not findings:
             self.findings_text.append("No vulnerabilities detected yet...")
+            self.recom_text.append("<b>🛡️ No recommendations available.</b>")
             return
-        
+
         # Update findings with enhanced formatting
-        self.findings_text.append("🔍 Vulnerability Analysis:\n")
-        
+        self.findings_text.append("🔍 <b>Vulnerability Analysis</b>\n")
+
         # Group findings by severity
         severity_groups = {
             'Critical': [],
@@ -214,91 +212,128 @@ class VulnerabilityPanel(QWidget):
             'Medium': [],
             'Low': []
         }
-        
+        type_groups = {}
         for finding in findings:
             severity = finding.get('severity', 'Low')
             severity_groups[severity].append(finding)
-        
+            ftype = finding.get('type', 'general')
+            if ftype not in type_groups:
+                type_groups[ftype] = []
+            type_groups[ftype].append(finding)
+
         # Display findings by severity
         for severity in ['Critical', 'High', 'Medium', 'Low']:
             if severity_groups[severity]:
                 # Set color based on severity
                 if severity == 'Critical':
                     color = COLORS['warning_red']
+                    icon = '⚠️'
                 elif severity == 'High':
                     color = '#FF4444'  # Bright red
+                    icon = '🔴'
                 elif severity == 'Medium':
                     color = COLORS['cyber_yellow']
+                    icon = '🟡'
                 else:
                     color = COLORS['neon_green']
-                
+                    icon = '🟢'
+
                 self.findings_text.append(
                     f'<span style="color: {color}; font-size: 16px; font-weight: bold;">'
-                    f"[!] {severity} Severity Findings ({len(severity_groups[severity])})"
+                    f"{icon} {severity} Severity Findings ({len(severity_groups[severity])})"
                     f"</span>\n"
                 )
-                
+
                 for finding in severity_groups[severity]:
                     # Format finding details
                     title = finding.get('title', 'Unknown Issue')
                     osvdb = finding.get('osvdb', '')
                     details = finding.get('details', '').strip()
-                    
+
                     self.findings_text.append(
-                        f'<span style="color: {color}">'
-                        f"➤ {title}"
-                        f"</span>"
+                        f'<span style="color: {color}; font-weight: bold;">➤ {title}</span>'
                     )
-                    
+
                     if osvdb:
-                        self.findings_text.append(f"  OSVDB-{osvdb}")
-                    
+                        self.findings_text.append(f"  <b>OSVDB-{osvdb}</b>")
+
                     if details:
-                        self.findings_text.append(f"  Details: {details}")
-                    
+                        self.findings_text.append(f"  <i>Details:</i> {details}")
+
                     # Add server info if available
                     if 'server_info' in finding:
-                        self.findings_text.append(f"  Server: {finding['server_info']}")
-                    
-                    self.findings_text.append("")  # Add spacing
-        
+                        self.findings_text.append(f"  <i>Server:</i> {finding['server_info']}")
+
+                    self.findings_text.append("<br>")  # Add spacing
+
         # Update recommendations with enhanced insights
-        self.recom_text.append("🛡️ Security Recommendations:\n")
-        
+        self.recom_text.append("<b>🛡️ Security Recommendations</b><br><br>")
+        self.recom_text.append("<i>Below are actionable steps and best practices based on the findings above. Address high and critical issues first for maximum impact.</i><br><br>")
+
         # Track seen categories to avoid duplicates
         seen_categories = set()
-        
-        for finding in findings:
-            category = finding.get('type', 'general')
-            if category not in seen_categories:
-                seen_categories.add(category)
-                
+        for ftype, findings_of_type in type_groups.items():
+            if ftype not in seen_categories:
+                seen_categories.add(ftype)
                 # Get specific recommendations for this type
-                attack_recs = self._get_attack_recommendations(finding)
-                mitigation_steps = self._get_mitigation_steps(finding)
-                
-                if attack_recs or mitigation_steps:
-                    self.recom_text.append(f"\n[*] {category.upper()} Recommendations:")
-                    
-                    if attack_recs:
-                        self.recom_text.append("\n  🎯 Testing Steps:")
-                        for rec in attack_recs:
-                            self.recom_text.append(f"    • {rec}")
-                    
-                    if mitigation_steps:
-                        self.recom_text.append("\n  🛡️ Mitigation Steps:")
-                        for step in mitigation_steps:
-                            self.recom_text.append(f"    • {step}")
-        
+                attack_recs = self._get_attack_recommendations({'type': ftype})
+                mitigation_steps = self._get_mitigation_steps({'type': ftype})
+                section_icon = '🛡️'
+                if ftype == 'ssl':
+                    section_icon = '🔒'
+                elif ftype == 'xss':
+                    section_icon = '💥'
+                elif ftype == 'injection':
+                    section_icon = '💉'
+                elif ftype == 'headers':
+                    section_icon = '📑'
+                elif ftype == 'cookies':
+                    section_icon = '🍪'
+                elif ftype == 'info_disclosure':
+                    section_icon = '🔎'
+                elif ftype == 'auth':
+                    section_icon = '🔑'
+                elif ftype == 'outdated':
+                    section_icon = '⏳'
+                elif ftype == 'shellshock':
+                    section_icon = '💣'
+                elif ftype == 'general':
+                    section_icon = '🛡️'
+                self.recom_text.append(f"<b>{section_icon} {ftype.upper()} Recommendations:</b><br>")
+                if attack_recs:
+                    self.recom_text.append("<b>🎯 Testing Steps:</b><ul>")
+                    for rec in attack_recs:
+                        self.recom_text.append(f"<li>{rec}</li>")
+                    self.recom_text.append("</ul>")
+                if mitigation_steps:
+                    self.recom_text.append("<b>🛡️ Mitigation Steps:</b><ul>")
+                    for step in mitigation_steps:
+                        self.recom_text.append(f"<li>{step}</li>")
+                    self.recom_text.append("</ul>")
+                if not (attack_recs or mitigation_steps):
+                    # Show generic best practices if no specific recs
+                    self.recom_text.append("<b>🛡️ Best Practices:</b><ul>")
+                    self.recom_text.append("<li>Review service necessity</li><li>Implement access controls</li><li>Monitor service activity</li><li>Keep software updated</li><li>Use encryption where possible</li></ul>")
+                self.recom_text.append("<hr>")
+
+        # If no recommendations were added, show a generic section
+        if len(seen_categories) == 0:
+            self.recom_text.append("<b>🛡️ General Recommendations:</b><ul>")
+            self.recom_text.append("<li>Review service necessity</li><li>Implement access controls</li><li>Monitor service activity</li><li>Keep software updated</li><li>Use encryption where possible</li></ul>")
+
+        # Friendly summary/call-to-action
+        if findings:
+            self.recom_text.append("<br><b>✅ Take action on the above recommendations to improve your security posture!</b>")
+
         # Add overall risk assessment
         total_findings = len(findings)
         critical_count = len(severity_groups['Critical'])
         high_count = len(severity_groups['High'])
         medium_count = len(severity_groups['Medium'])
-        
+
         risk_score = ((critical_count * 100) + (high_count * 50) + (medium_count * 25)) / (total_findings * 100) if total_findings > 0 else 0
-        
-        self.findings_text.append("\n📊 Risk Assessment:")
+
+        self.findings_text.append("<br><b>📊 Risk Assessment:</b>")
         self.findings_text.append(f"  • Total Findings: {total_findings}")
         self.findings_text.append(f"  • Critical Issues: {critical_count}")
         self.findings_text.append(f"  • High Issues: {high_count}")
@@ -512,15 +547,77 @@ class NiktoPage(QWidget):
         left_layout.addWidget(self.terminal)
         
         splitter.addWidget(left_panel)
-        
-        # Right panel - Vulnerability Analysis
+
+        # Right panel - Vulnerability Analysis and AI Interpreter
+        right_panel = QWidget()
+        right_layout = QVBoxLayout(right_panel)
+        right_layout.setSpacing(LAYOUT['margin'])
+
         self.vuln_panel = VulnerabilityPanel()
-        splitter.addWidget(self.vuln_panel)
-        
-        # Set splitter sizes (40% left, 60% right)
+        right_layout.addWidget(self.vuln_panel)
+
+        # AI Interpreter Panel
+        self.interpreter_label = QLabel("🤖 <b>AI Interpreter</b>")
+        self.interpreter_label.setStyleSheet(f"color: {COLORS['cyber_yellow']}; font-size: 16px; font-weight: bold;")
+        right_layout.addWidget(self.interpreter_label)
+        self.interpreter_text = QTextEdit()
+        self.interpreter_text.setReadOnly(True)
+        self.interpreter_text.setStyleSheet(f"""
+            QTextEdit {{
+                background-color: {COLORS['background']};
+                color: {COLORS['text_primary']};
+                border: 2px solid {COLORS['electric_blue']};
+                border-radius: 10px;
+                padding: 10px;
+                font-family: 'Consolas';
+            }}
+        """)
+        right_layout.addWidget(self.interpreter_text)
+
+        splitter.addWidget(right_panel)
         splitter.setSizes([400, 600])
         layout.addWidget(splitter)
         
+    def update_interpreter(self, findings):
+        """Generate and display a natural language interpretation of the findings."""
+        if not findings:
+            self.interpreter_text.setHtml("<i>No findings to interpret yet.</i>")
+            return
+        # Count by severity
+        sev_count = {'Critical': 0, 'High': 0, 'Medium': 0, 'Low': 0}
+        type_count = {}
+        for f in findings:
+            sev = f.get('severity', 'Low')
+            sev_count[sev] = sev_count.get(sev, 0) + 1
+            ftype = f.get('type', 'general')
+            type_count[ftype] = type_count.get(ftype, 0) + 1
+        total = len(findings)
+        summary = f"<b>Scan Interpretation:</b><br>"
+        summary += f"<b>Total Findings:</b> {total}<br>"
+        summary += f"<b>Critical:</b> {sev_count['Critical']} | <b>High:</b> {sev_count['High']} | <b>Medium:</b> {sev_count['Medium']} | <b>Low:</b> {sev_count['Low']}<br><br>"
+        if sev_count['Critical'] > 0:
+            summary += "<b>⚠️ Critical issues detected!</b> Immediate action is required to address these vulnerabilities.<br>"
+        elif sev_count['High'] > 0:
+            summary += "<b>🔴 High risk issues found.</b> Prioritize remediation of these findings.<br>"
+        elif sev_count['Medium'] > 0:
+            summary += "<b>🟡 Medium risk issues present.</b> Review and address as part of your security process.<br>"
+        else:
+            summary += "<b>🟢 No high or critical risks detected.</b> Maintain good security hygiene.<br>"
+        # List most common finding types
+        if type_count:
+            summary += "<br><b>Most common finding types:</b><ul>"
+            for t, c in sorted(type_count.items(), key=lambda x: -x[1]):
+                summary += f"<li><b>{t.title()}</b>: {c} finding(s)</li>"
+            summary += "</ul>"
+        # Call to action
+        if sev_count['Critical'] > 0 or sev_count['High'] > 0:
+            summary += "<br><b>🚨 Recommended: Address critical and high findings immediately. See the recommendations panel for prioritized actions.</b>"
+        elif sev_count['Medium'] > 0:
+            summary += "<br><b>🟡 Recommended: Review and address medium findings soon.</b>"
+        else:
+            summary += "<br><b>✅ Your target appears to have a good security posture. Continue regular monitoring and updates.</b>"
+        self.interpreter_text.setHtml(summary)
+
     def start_scan(self):
         target = self.target_input.text()
         if not target:
@@ -584,9 +681,10 @@ class NiktoPage(QWidget):
                 finding['ai_error'] = f"AI analysis error: {str(e)}"
             self.current_findings.append(finding)
             self.vuln_panel.update_analysis(self.current_findings)
+            self.update_interpreter(self.current_findings)
     
     def _parse_finding(self, output):
-        """Parse finding with enhanced robustness for various Nikto output formats"""
+        """Parse finding with enhanced robustness for various Nikto output formats and categorize findings for recommendations"""
         finding = {
             'timestamp': datetime.now().isoformat(),
             'raw_output': output
@@ -611,11 +709,57 @@ class NiktoPage(QWidget):
             finding['title'] = parts[1].strip() if len(parts) > 1 else output
             finding['details'] = ','.join(parts[2:]).strip() if len(parts) > 2 else ''
             return finding
+        # Enhanced: Parse Nikto findings (lines starting with '+')
+        if output.strip().startswith('+'):
+            title = output.strip()[1:].strip()
+            finding['title'] = title
+            finding['details'] = title
+            # Categorize finding
+            title_lower = title.lower()
+            if 'x-frame-options' in title_lower or 'strict-transport-security' in title_lower or 'content-security-policy' in title_lower:
+                finding['type'] = 'headers'
+                finding['severity'] = 'Medium'
+            elif 'ssl' in title_lower or 'tls' in title_lower or 'certificate' in title_lower:
+                finding['type'] = 'ssl'
+                finding['severity'] = 'Medium'
+            elif 'xss' in title_lower or 'cross-site scripting' in title_lower:
+                finding['type'] = 'xss'
+                finding['severity'] = 'High'
+            elif 'sql injection' in title_lower or 'sql-injection' in title_lower:
+                finding['type'] = 'injection'
+                finding['severity'] = 'Critical'
+            elif 'cookie' in title_lower:
+                finding['type'] = 'cookies'
+                finding['severity'] = 'Medium'
+            elif 'directory indexing' in title_lower or 'index of /' in title_lower:
+                finding['type'] = 'info_disclosure'
+                finding['severity'] = 'Medium'
+            elif 'admin' in title_lower or 'login' in title_lower:
+                finding['type'] = 'auth'
+                finding['severity'] = 'Medium'
+            elif 'debug' in title_lower or 'trace' in title_lower:
+                finding['type'] = 'info_disclosure'
+                finding['severity'] = 'Medium'
+            elif 'outdated' in title_lower or 'obsolete' in title_lower:
+                finding['type'] = 'outdated'
+                finding['severity'] = 'High'
+            elif 'shellshock' in title_lower:
+                finding['type'] = 'shellshock'
+                finding['severity'] = 'Critical'
+            elif 'exposure' in title_lower or 'disclosure' in title_lower:
+                finding['type'] = 'info_disclosure'
+                finding['severity'] = 'Medium'
+            else:
+                finding['type'] = 'general'
+                finding['severity'] = 'Low'
+            return finding
         # Fallback: parse as plain text
         if '+ ' in output or 'OSVDB' in output:
             finding['title'] = output.split(': ', 1)[1] if ': ' in output else output
         else:
             finding['title'] = output
+        finding['type'] = 'general'
+        finding['severity'] = 'Low'
         return finding
     
     def _get_ai_recommendations(self, finding):
@@ -701,6 +845,22 @@ class NiktoPage(QWidget):
         if not findings:
             self.terminal.append_output("[!] No findings detected or output could not be parsed.")
         self.vuln_panel.update_analysis(findings)
+        self.update_interpreter(findings)
+        # --- Save to database for history ---
+        try:
+            from core.database_manager import DatabaseManager
+            db = DatabaseManager()
+            ai_analysis = self.interpreter_text.toPlainText() if hasattr(self, 'interpreter_text') else ''
+            scan_id = db.add_scan(
+                tool_name="Nikto",
+                target=self.current_target if self.current_target else (self.target_input.text() if hasattr(self, 'target_input') else 'Unknown'),
+                status="Success",
+                results=findings,
+                ai_analysis=ai_analysis
+            )
+            self.terminal.append_output(f"[✓] Scan saved to database (ID: {scan_id})")
+        except Exception as e:
+            self.terminal.append_output(f"[!] Failed to save scan to database: {str(e)}")
         
     def _parse_scan_results(self):
         """Parse Nikto output into structured findings with enhanced robustness"""

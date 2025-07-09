@@ -244,8 +244,28 @@ class SqlmapPage(QWidget):
         left_layout.addWidget(self.terminal)
         splitter.addWidget(left_panel)
         # Right panel (AI analysis)
+        right_panel = QWidget()
+        right_layout = QVBoxLayout(right_panel)
         self.ai_panel = SqlmapAIAnalysisPanel()
-        splitter.addWidget(self.ai_panel)
+        right_layout.addWidget(self.ai_panel)
+        # AI Interpreter Panel
+        self.interpreter_label = QLabel("🤖 <b>AI Interpreter</b>")
+        self.interpreter_label.setStyleSheet(f"color: {COLORS['cyber_yellow']}; font-size: 16px; font-weight: bold;")
+        right_layout.addWidget(self.interpreter_label)
+        self.interpreter_text = QTextEdit()
+        self.interpreter_text.setReadOnly(True)
+        self.interpreter_text.setStyleSheet(f"""
+            QTextEdit {{
+                background-color: {COLORS['background']};
+                color: {COLORS['text_primary']};
+                border: 2px solid {COLORS['electric_blue']};
+                border-radius: 10px;
+                padding: 10px;
+                font-family: 'Consolas';
+            }}
+        """)
+        right_layout.addWidget(self.interpreter_text)
+        splitter.addWidget(right_panel)
         splitter.setSizes([600, 400])
         layout.addWidget(splitter)
 
@@ -286,6 +306,34 @@ class SqlmapPage(QWidget):
         self.start_button.setEnabled(True)
         self.stop_button.setEnabled(False)
 
+    def update_interpreter(self, scan_results):
+        """Generate and display a natural language interpretation of the SQLMap scan."""
+        output = '\n'.join(scan_results)
+        summary = "<b>Scan Interpretation:</b><br>"
+        if not scan_results:
+            summary += "<i>No scan results to interpret yet.</i>"
+        elif "can't establish SSL connection" in output:
+            summary += "<b>❌ Could not establish SSL connection to the target.</b><br>"
+            summary += "Check the URL, try HTTP instead of HTTPS, or verify the server's SSL configuration.<br>"
+        elif "no parameter(s) found for testing" in output:
+            summary += "<b>⚠️ No parameters found for testing.</b><br>"
+            summary += "SQLMap could not find any GET or POST parameters to test for SQL injection. Try using <b>--forms</b> and <b>--crawl=2</b> to let SQLMap look for forms and crawl the site for more parameters.<br>"
+        elif "WAF/IPS" in output or "protected by some kind of WAF" in output:
+            summary += "<b>🛡️ The target appears to be protected by a Web Application Firewall (WAF) or Intrusion Prevention System (IPS).</b><br>"
+            summary += "This may block or alter suspicious requests. Try using SQLMap's evasion options, or scan a different site.<br>"
+        elif "not vulnerable" in output or "no injection" in output:
+            summary += "<b>✅ No SQL injection vulnerabilities found.</b><br>"
+            summary += "The target appears secure against SQL injection for the tested parameters. Continue monitoring and try different endpoints if needed.<br>"
+        elif "sql injection" in output.lower() or "vulnerable" in output.lower():
+            summary += "<b>🚨 SQL Injection vulnerability detected!</b><br>"
+            summary += "Immediate action is required. See the recommendations and attack tabs for next steps.<br>"
+        elif "connection timed out" in output:
+            summary += "<b>⚠️ Connection to the target timed out.</b><br>"
+            summary += "Check your network connection, the target's availability, or try again later.<br>"
+        else:
+            summary += "<i>Scan in progress or inconclusive. Review the terminal output for more details.</i>"
+        self.interpreter_text.setHtml(summary)
+
     def handle_output(self, output):
         if '[!]' in output or 'error' in output.lower():
             self.terminal.append(f'<span style="color: {COLORS["warning_red"]};">{output}</span>')
@@ -295,12 +343,14 @@ class SqlmapPage(QWidget):
         # AI analysis: findings, attack vectors, defenses
         findings, attacks, defenses = self._ai_analyze_sqlmap_output('\n'.join(self.scan_results))
         self.ai_panel.update_analysis(findings, attacks, defenses)
+        self.update_interpreter(self.scan_results)
 
     def scan_finished(self):
         self.terminal.append("[✓] Scan completed!")
         self.start_button.setEnabled(True)
         self.stop_button.setEnabled(False)
         self.ai_panel.ai_status.setText("🤖 AI Ready")
+        self.update_interpreter(self.scan_results)
         # Save scan to database for history
         try:
             from core.database_manager import DatabaseManager

@@ -74,9 +74,13 @@ class MetasploitManager:
         """Check if a command exists and is executable"""
         try:
             result = subprocess.run([command, '--version'], 
-                                  capture_output=True, text=True, timeout=5)
+                                  capture_output=True, text=True, timeout=20)  # Increased timeout
             return result.returncode == 0
-        except:
+        except subprocess.TimeoutExpired:
+            print(f"Timeout: {command} --version took too long.")
+            return False
+        except Exception as e:
+            print(f"Error running {command} --version: {e}")
             return False
     
     def is_available(self) -> bool:
@@ -154,7 +158,7 @@ exit
             
             result = subprocess.run([
                 self.msfconsole_path, '-r', rc_file, '-q'
-            ], capture_output=True, text=True, timeout=30)  # Reduced timeout
+            ], capture_output=True, text=True, timeout=90)  # Increased timeout
             
             os.unlink(rc_file)
             
@@ -213,7 +217,7 @@ exit
             
             result = subprocess.run([
                 self.msfconsole_path, '-r', rc_file, '-q'
-            ], capture_output=True, text=True, timeout=30)
+            ], capture_output=True, text=True, timeout=120)  # Increased timeout
             
             os.unlink(rc_file)
             
@@ -313,7 +317,7 @@ exit
             
             result = subprocess.run([
                 self.msfconsole_path, '-r', rc_file, '-q'
-            ], capture_output=True, text=True, timeout=60)
+            ], capture_output=True, text=True, timeout=180)  # Increased timeout
             
             os.unlink(rc_file)
             
@@ -382,7 +386,7 @@ exit
             
             result = subprocess.run([
                 self.msfconsole_path, '-r', rc_file, '-q'
-            ], capture_output=True, text=True, timeout=120)
+            ], capture_output=True, text=True, timeout=120)  # Increased timeout
             
             os.unlink(rc_file)
             
@@ -532,7 +536,7 @@ exit
             
             result = subprocess.run([
                 self.msfconsole_path, '-r', rc_file, '-q'
-            ], capture_output=True, text=True, timeout=60)
+            ], capture_output=True, text=True, timeout=60)  # Increased timeout
             
             os.unlink(rc_file)
             
